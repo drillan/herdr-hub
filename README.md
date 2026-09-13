@@ -112,7 +112,7 @@ agents:
 | `handoff_at` | float (0–1) | `0.8` | 交代判定の使用率閾値（80% 使用で発火） |
 | `placement` | `pane` \| `tab` | `tab` | 起動時の配置。少数を横に並べて監視したいなら `pane` |
 
-トップレベルの `defaults:` で `transport` / `handoff_at` / `placement` の全体既定を与えられる（agent 個別の指定が優先）。
+トップレベルの `defaults:` で `transport` / `handoff_at` / `placement` の全体既定を与えられる（agent 個別の指定が優先）。`role_file` は agent 個別フィールド — `defaults:` 配下に書いても適用されない。また起動引数（`名前: 役割` 列挙）では渡せず **YAML 経路限定**。
 
 テンプレートは [.herdr-hub.yml.example](skills/herdr-hub/.herdr-hub.yml.example)（skill 同梱） — プロジェクトの cwd に `.herdr-hub.yml` としてコピーして使う。
 
