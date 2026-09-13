@@ -12,6 +12,8 @@
 4. **`defaults.transport`**（roster YAML トップレベル。native 経路を持たない宛先への fallback）
 5. **それ以外 → `herdr`**（汎用。観測も兼ねる）
 
+明示値 `transport: auto` は省略と同じく自動解決する — 規則 1 には合致せず規則 2 以降を辿る（「経路なし」を意味する `none` や `defaults:` と紛らわしい `default` とは別物）。
+
 ### `defaults.transport` の効き方
 
 - 規則 4 は規則 2・3 の native 推定より後に効く — **native 経路を持たない宛先にだけ適用される fallback**。書いても Claude 宛の sendmessage・Codex 宛の codex-queue 推定は潰れない

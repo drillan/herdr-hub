@@ -32,7 +32,7 @@ agents:
 | フィールド | 型 | 既定 | 意味 |
 |---|---|---|---|
 | `role` | string | （必須） | 役割の説明。briefing にそのまま使う |
-| `transport` | `herdr` \| `sendmessage` \| `codex-queue` | [transports.md](transports.md) の既定推定 | この宛先への送信経路 |
+| `transport` | `herdr` \| `sendmessage` \| `codex-queue` \| `auto` | `auto` | この宛先への送信経路。`auto` は省略と同じく自動解決する明示値（[transports.md](transports.md) の優先順位） |
 | `handoff_at` | float (0–1) | `0.8` | 交代判定の使用率閾値（80% 使用で発火）。詳細は [context-and-handover.md](context-and-handover.md) |
 | `placement` | `pane` \| `tab` | `tab` | 起動時の配置。少数を横に並べて監視したいなら `pane`（[startup.md](startup.md)） |
 

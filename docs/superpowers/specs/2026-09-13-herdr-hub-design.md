@@ -48,7 +48,7 @@ agents:
   worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: pane }
 ```
 
-フィールド: `role`（必須・役割）/ `transport`（既定推定で省略可）/ `handoff_at`（交代判定の使用率閾値・既定 0.8）/ `placement`（`tab` 既定 or `pane`。後から `herdr pane move <id> --new-tab` で tab 化も可）。トップレベル `defaults:` で全 agent の既定値を与えられる（agent 個別指定が優先）。雛形は skill 同梱の `.herdr-hub.yml.example`
+フィールド: `role`（必須・役割）/ `transport`（`herdr` \| `sendmessage` \| `codex-queue` \| `auto`。省略可 — `auto` は省略と同じ自動解決の明示値）/ `handoff_at`（交代判定の使用率閾値・既定 0.8）/ `placement`（`tab` 既定 or `pane`。後から `herdr pane move <id> --new-tab` で tab 化も可）。トップレベル `defaults:` で全 agent の既定値を与えられる（agent 個別指定が優先）。雛形は skill 同梱の `.herdr-hub.yml.example`
 
 ### roster の検証（起動時に必ず行う）
 

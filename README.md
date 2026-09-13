@@ -107,7 +107,7 @@ agents:
 | フィールド | 型 | 既定 | 意味 |
 |---|---|---|---|
 | `role` | string | （必須） | 役割の説明。briefing にそのまま使う |
-| `transport` | `herdr` \| `sendmessage` \| `codex-queue` | 下の優先順位で推定 | この宛先への送信経路 |
+| `transport` | `herdr` \| `sendmessage` \| `codex-queue` \| `auto` | `auto` | この宛先への送信経路。`auto` は省略と同じ自動解決の明示値 |
 | `handoff_at` | float (0–1) | `0.8` | 交代判定の使用率閾値（80% 使用で発火） |
 | `placement` | `pane` \| `tab` | `tab` | 起動時の配置。少数を横に並べて監視したいなら `pane` |
 
@@ -132,6 +132,8 @@ agents:
 3. 宛先 = Codex → `codex-queue`
 4. `defaults.transport`（native 経路を持たない宛先への fallback。規則 2・3 の native 推定は潰れない）
 5. それ以外 → `herdr`
+
+明示値 `transport: auto` は省略と同じくこの優先順位で自動解決する。
 
 ### placement（配置）— pane | tab
 

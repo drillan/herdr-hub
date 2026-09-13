@@ -15,3 +15,5 @@ agents:
   reviewer: { role: レビュー専任 }
   worker1:  { role: 実装 }
   # worker2:  { role: 実装, placement: pane, handoff_at: 0.9 }
+  # transport の値: herdr | sendmessage | codex-queue | auto
+  # （auto = 省略と同じ自動解決の明示値）
