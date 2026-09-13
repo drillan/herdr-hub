@@ -1,0 +1,53 @@
+# startup（agent の起動・配置 — 補助）
+
+**正は「既に live な agent の調整」。** 起動そのものは人間または別の仕組みが行う前提。本書は hub が自分で pane/agent を用意する必要が生じたときの補助手順。
+
+## pane の配置
+
+```bash
+herdr pane layout --pane "$HERDR_PANE_ID"    # 呼び出し pane の形状を見る
+herdr pane split --current --direction right --cwd "$PWD" --no-focus
+```
+
+- 広い pane は `right`、狭い/縦長は `down`。同方向の連続 split は使い物にならない列・行を生む
+- **`--no-focus` を付ける** — 人間のフォーカスを奪わない
+- **`--cwd "$PWD"` を明示する** — 呼び出し側の cwd を引き継ぐ
+- 新 pane ID は応答の `.result.pane.pane_id` を読む。サイドバーの並びから推測しない
+- workspace / tab / worktree の新設は人間が明示した場合だけ。既定は現 tab の兄弟 pane
+
+## agent の起動
+
+`agent start` は**利用可能な shell pane が前提**（対話 prompt にあり、foreground にコマンド・editor・agent が無い）。layout は作らない。
+
+```bash
+herdr agent start worker1 --kind codex --pane <pane-id>
+herdr agent start reviewer --kind claude --pane <pane-id> -- --name reviewer
+```
+
+- 名前は `[a-z][a-z0-9_-]{0,31}`、live agent 間で一意。**roster の名前をそのまま使う**
+- kind 一覧とオプションは `herdr agent` で確認（インストール済みバイナリが正典）
+- agent 固有の引数は `--` 以降に渡す
+- 起動 timeout は既定 30 秒。`agent_not_ready` で返っても**名前は保持され**、`agent read`/`send-keys` は使える。idle になるまで待ってから prompt する
+
+## 命名規約（重要）
+
+宛先解決を 1 つの roster で済ませるため **3 系統の名前を揃える**:
+
+| 系統 | 付け方 |
+|---|---|
+| herdr agent name | `herdr agent start <name>` の引数 |
+| Claude セッション名 | `-- claude --name <同じ名前>` |
+| Codex セッション名 | codex 側の session name を同名に |
+
+揃っていれば `herdr` / `sendmessage` / `codex-queue` どの transport でも roster の 1 名前で届く。
+
+## 起動後
+
+1. `herdr agent list` で live を確認
+2. roster 検証（[roster.md](roster.md)）へ進む
+3. briefing を送る（[briefing.md](briefing.md)）。briefing は **hub が書く** — 人間に書かせない
+
+## 注意
+
+- 自動で大量に agent を起動する編成機能は**意図的に持たない**（将来拡張）。まず既存 agent の調整で運用実績を積む
+- `agent start` に失敗した pane は残る — 閉じる判断は人間の指示があるまで行わない
