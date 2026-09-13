@@ -79,9 +79,9 @@ gh skill install drillan/herdr-hub herdr-hub --pin v0.1.1
 
 hub にしたいエージェントのセッションで skill を呼び出す。呼び出し側 = hub。
 
-### roster（名簿）の与え方 — 2 経路
+### roster（名簿）
 
-hub の起動時に「名前 → 役割」の対応表を与える。
+hub の起動時に「名前 → 役割」の対応表を与える。与え方は 2 経路（優先順位順）:
 
 1. **起動引数**（最優先）: skill 起動プロンプトに `名前: 役割` をカンマ区切りで列挙
 
@@ -92,14 +92,25 @@ hub の起動時に「名前 → 役割」の対応表を与える。
 2. **YAML**: `--roster <path>` で明示指定。省略時は cwd の `./.herdr-hub.yml` を読む（存在しなければ引数指定のみで動く）
 
 ```yaml
-defaults:                                # 全 agent の既定値（省略可）
+defaults:                                # 全 agent の既定値（省略可。agent 個別の指定が優先）
   placement: tab
+  # transport: herdr                     # native 経路を持たない宛先への fallback
+  # handoff_at: 0.8
 
 agents:
   hub:      { role: 統括,        transport: sendmessage }
-  reviewer: { role: レビュー専任 }                        # transport 省略時は既定推定
+  reviewer: { role: レビュー専任 }                        # 省略フィールドは defaults → 組み込み既定の順で解決
   worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: pane }
 ```
+
+| フィールド | 型 | 既定 | 意味 |
+|---|---|---|---|
+| `role` | string | （必須） | 役割の説明。briefing にそのまま使う |
+| `transport` | `herdr` \| `sendmessage` \| `codex-queue` | 下の優先順位で推定 | この宛先への送信経路 |
+| `handoff_at` | float (0–1) | `0.8` | 交代判定の使用率閾値（80% 使用で発火） |
+| `placement` | `pane` \| `tab` | `tab` | 起動時の配置。少数を横に並べて監視したいなら `pane` |
+
+トップレベルの `defaults:` で `transport` / `handoff_at` / `placement` の全体既定を与えられる（agent 個別の指定が優先）。
 
 テンプレートは [.herdr-hub.yml.example](skills/herdr-hub/.herdr-hub.yml.example)（skill 同梱） — プロジェクトの cwd に `.herdr-hub.yml` としてコピーして使う。
 
@@ -107,13 +118,19 @@ agents:
 
 ### transport（通信経路）— 3 種
 
-| transport | 宛先 | 形式 | 既定推定 |
-|---|---|---|---|
-| `herdr` | 全 agent 種 | `herdr agent prompt <name> "<text>"` | 既定・汎用 |
-| `sendmessage` | Claude セッション | Claude が `SendMessage` ツールを呼ぶ | Claude → Claude |
-| `codex-queue` | Codex セッション | `codex queue --thread <name> --message "<text>"` | 宛先が Codex |
+| transport | 宛先 | 形式 |
+|---|---|---|
+| `herdr` | 全 agent 種 | `herdr agent prompt <name> "<text>"` |
+| `sendmessage` | Claude セッション | Claude が `SendMessage` ツールを呼ぶ |
+| `codex-queue` | Codex セッション | `codex queue --thread <name> --message "<text>"` |
 
-roster YAML の `transport:` で宛先ごとに上書きできる。省略時は優先順位順に解決（個別指定 > Claude→Claude は `sendmessage` > `defaults.transport` > 宛先=Codex は `codex-queue` > `herdr`）。`defaults.transport` は sendmessage 適格でない宛先への fallback として効く（Codex 宛の codex-queue 推定も潰れる点に注意）。
+`transport:` 省略時は、宛先ごとに上から最初に合致した規則で解決する:
+
+1. agent 個別の `transport:`（最優先・強制）
+2. 送り手 = Claude かつ宛先 = Claude → `sendmessage`
+3. 宛先 = Codex → `codex-queue`
+4. `defaults.transport`（native 経路を持たない宛先への fallback。規則 2・3 の native 推定は潰れない）
+5. それ以外 → `herdr`
 
 ### placement（配置）— pane | tab
 

@@ -72,8 +72,8 @@ agents:
 
 1. agent 個別の `transport:`（最優先・強制）
 2. 送り手 = Claude かつ宛先 = Claude → `sendmessage`
-3. `defaults.transport`（sendmessage 適格でない宛先への fallback。Claude hub で `defaults.transport: herdr` と書くと「Claude 宛は sendmessage、それ以外は herdr」のモードになる。規則 4 より先に効くため Codex 宛の codex-queue 推定も潰れる点に注意）
-4. 宛先 = Codex → `codex-queue`
+3. 宛先 = Codex → `codex-queue`
+4. `defaults.transport`（native 経路を持たない宛先への fallback。規則 2・3 より後に効くため、Claude 宛の sendmessage・Codex 宛の codex-queue 推定は潰れない）
 5. それ以外 → `herdr`
 
 ### 命名規約（重要）

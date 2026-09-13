@@ -18,7 +18,7 @@ hub が調整対象を知るための「名前 → 役割」の対応表。roste
 ```yaml
 defaults:                                # 全 agent の既定値（省略可。agent 個別の指定が優先）
   placement: tab
-  # transport: herdr                     # sendmessage 適格でない宛先への fallback（詳細は transports.md の優先順位）
+  # transport: herdr                     # native 経路を持たない宛先への fallback（詳細は transports.md の優先順位）
   # handoff_at: 0.8
 
 agents:

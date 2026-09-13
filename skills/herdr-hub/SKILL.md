@@ -44,7 +44,7 @@ hub の起動時に「名前 → 役割」の対応表を得る。2 経路:
 
 ## §2 transport（通信経路）
 
-宛先ごとに経路を選ぶ。解決は優先順位順（個別指定 > Claude→Claude は `sendmessage` > `defaults.transport` > 宛先=Codex は `codex-queue` > `herdr`）:
+宛先ごとに経路を選ぶ。解決は優先順位順（個別指定 > Claude→Claude は `sendmessage` > 宛先=Codex は `codex-queue` > `defaults.transport` > `herdr`）:
 
 | 送り手 → 宛先 | transport |
 |---|---|
@@ -52,7 +52,7 @@ hub の起動時に「名前 → 役割」の対応表を得る。2 経路:
 | 任意 → Codex | `codex-queue` |
 | それ以外 | `herdr` |
 
-YAML の `transport:` で個別上書き可。`defaults.transport` は sendmessage 適格でない宛先への fallback（Codex 宛の codex-queue 推定も潰れる点に注意）。各経路の要件・コマンド・罠 → [references/transports.md](references/transports.md)
+YAML の `transport:` で個別上書き可。`defaults.transport` は native 経路を持たない宛先への fallback（Claude 宛・Codex 宛の native 推定は潰れない）。各経路の要件・コマンド・罠 → [references/transports.md](references/transports.md)
 
 ## §3 通信プロトコル（骨子）
 

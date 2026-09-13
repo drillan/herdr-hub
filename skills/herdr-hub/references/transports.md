@@ -8,14 +8,14 @@
 
 1. **agent 個別の `transport:`**（最優先・強制）
 2. **送り手 = Claude かつ宛先 = Claude → `sendmessage`**（native。held/refused 意味論と `notify_when_idle` がある）
-3. **`defaults.transport`**（roster YAML トップレベル。sendmessage 適格でない宛先への fallback）
-4. **宛先 = Codex → `codex-queue`**（CLI なので誰でも送れる。queue で非同期）
+3. **宛先 = Codex → `codex-queue`**（CLI なので誰でも送れる。queue で非同期）
+4. **`defaults.transport`**（roster YAML トップレベル。native 経路を持たない宛先への fallback）
 5. **それ以外 → `herdr`**（汎用。観測も兼ねる）
 
 ### `defaults.transport` の効き方
 
-- Claude hub で `defaults.transport: herdr` と書くと「**Claude 宛は sendmessage、それ以外は herdr**」のモードになる（2 が先に効くので Claude 宛は潰れない）
-- ただし規則 3 は規則 4 より先 — `defaults.transport` を書くと **Codex 宛の codex-queue 推定も潰れる**。Codex 宛に codex-queue を残したいなら、その agent に個別で `transport: codex-queue` を書く（規則 1）
+- 規則 4 は規則 2・3 の native 推定より後に効く — **native 経路を持たない宛先にだけ適用される fallback**。書いても Claude 宛の sendmessage・Codex 宛の codex-queue 推定は潰れない
+- Claude hub で `defaults.transport: herdr` と書くと「**Claude 宛は sendmessage、Codex 宛は codex-queue、それ以外は herdr**」のモードになる
 
 ## `herdr`（既定・汎用）
 
