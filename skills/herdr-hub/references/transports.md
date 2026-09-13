@@ -1,14 +1,21 @@
 # transports（通信経路）
 
-宛先 agent への送信経路。roster の `transport:` で指定、省略時は下の既定推定。
+宛先 agent への送信経路。roster の `transport:` で指定、省略時は下の優先順位で推定。
 
-## 既定推定
+## 解決の優先順位
 
-| 送り手 | 宛先 | transport | 理由 |
-|---|---|---|---|
-| Claude | Claude | `sendmessage` | native。held/refused 意味論と `notify_when_idle` がある |
-| 任意 | Codex | `codex-queue` | CLI なので誰でも送れる。queue で非同期 |
-| 任意 | 任意 | `herdr` | 汎用。観測も兼ねる |
+宛先ごとに、上から最初に合致した規則を使う:
+
+1. **agent 個別の `transport:`**（最優先・強制）
+2. **送り手 = Claude かつ宛先 = Claude → `sendmessage`**（native。held/refused 意味論と `notify_when_idle` がある）
+3. **`defaults.transport`**（roster YAML トップレベル。sendmessage 適格でない宛先への fallback）
+4. **宛先 = Codex → `codex-queue`**（CLI なので誰でも送れる。queue で非同期）
+5. **それ以外 → `herdr`**（汎用。観測も兼ねる）
+
+### `defaults.transport` の効き方
+
+- Claude hub で `defaults.transport: herdr` と書くと「**Claude 宛は sendmessage、それ以外は herdr**」のモードになる（2 が先に効くので Claude 宛は潰れない）
+- ただし規則 3 は規則 4 より先 — `defaults.transport` を書くと **Codex 宛の codex-queue 推定も潰れる**。Codex 宛に codex-queue を残したいなら、その agent に個別で `transport: codex-queue` を書く（規則 1）
 
 ## `herdr`（既定・汎用）
 

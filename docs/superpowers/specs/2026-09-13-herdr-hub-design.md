@@ -66,12 +66,15 @@ agents:
 | `sendmessage` | Claude セッション | agent tool（Claude が `SendMessage` を呼ぶ） | 送り手も Claude。Claude Code v2.1.224+ |
 | `codex-queue` | Codex セッション | CLI: `codex queue --thread <name> --message "<text>"` | 誰でも送れる。0.149.0 で導入との報告、実機確認は 0.154.0（`codex queue --help` で要確認） |
 
-### transport の既定推定
+### transport の解決優先順位
 
-- 送り手 = Claude かつ宛先 = Claude → `sendmessage`
-- 宛先 = Codex → `codex-queue`
-- それ以外 → `herdr`
-- YAML の `transport:` で個別上書き可
+宛先ごとに上から最初に合致した規則を使う:
+
+1. agent 個別の `transport:`（最優先・強制）
+2. 送り手 = Claude かつ宛先 = Claude → `sendmessage`
+3. `defaults.transport`（sendmessage 適格でない宛先への fallback。Claude hub で `defaults.transport: herdr` と書くと「Claude 宛は sendmessage、それ以外は herdr」のモードになる。規則 4 より先に効くため Codex 宛の codex-queue 推定も潰れる点に注意）
+4. 宛先 = Codex → `codex-queue`
+5. それ以外 → `herdr`
 
 ### 命名規約（重要）
 
