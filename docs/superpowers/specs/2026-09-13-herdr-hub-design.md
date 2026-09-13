@@ -48,12 +48,13 @@ agents:
   worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: pane }
 ```
 
-フィールド: `role`（必須・役割）/ `transport`（`herdr` \| `sendmessage` \| `codex-queue` \| `auto`。省略可 — `auto` は省略と同じ自動解決の明示値）/ `handoff_at`（交代判定の使用率閾値・既定 0.8）/ `placement`（`tab` 既定 or `pane`。後から `herdr pane move <id> --new-tab` で tab 化も可）。トップレベル `defaults:` で全 agent の既定値を与えられる（agent 個別指定が優先）。雛形は skill 同梱の `.herdr-hub.yml.example`
+フィールド: `role`（必須・役割の短いラベル）/ `role_file`（任意・長文の役割定義 .md へのパス。roster YAML のある dir からの相対。briefing の役割ブロックへ内容をそのまま注入。agent 個別フィールド — `defaults:` では適用されず、起動引数でも渡せない YAML 経路限定）/ `transport`（`herdr` \| `sendmessage` \| `codex-queue` \| `auto`。省略可 — `auto` は省略と同じ自動解決の明示値）/ `handoff_at`（交代判定の使用率閾値・既定 0.8）/ `placement`（`tab` 既定 or `pane`。後から `herdr pane move <id> --new-tab` で tab 化も可）。トップレベル `defaults:` で全 agent の既定値を与えられる（agent 個別指定が優先）。雛形は skill 同梱の `.herdr-hub.yml.example`
 
 ### roster の検証（起動時に必ず行う）
 
 - roster に載る全名前が `herdr agent list` で live に解決すること
 - 解決できない名前があれば **即座にエラー**。黙ってスキップしない
+- `role_file` を指定した agent については、ファイルが存在し読めること（不在・不可読は同じく即エラー）
 - export 補助手順: `herdr tab list` + `herdr agent list` から現在の配置を YAML 雛形として出力する手順を `references/roster.md` に置く（tab label を役割の初期値にする）
 
 ## transport（通信経路）

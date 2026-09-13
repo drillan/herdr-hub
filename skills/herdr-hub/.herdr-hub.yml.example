@@ -18,3 +18,5 @@ agents:
   # worker2:  { role: 実装, placement: pane, handoff_at: 0.9 }
   # transport の値（agent 個別）: herdr | sendmessage | codex-queue | auto
   # （auto = 省略と同じ自動解決の明示値）
+  # role_file: docs/roles/reviewer.md   # 任意。長文の役割定義 .md へのパス
+  #                                    # （このファイルのある dir からの相対）
