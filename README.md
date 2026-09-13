@@ -91,7 +91,7 @@ agents:
 | `sendmessage` | Claude セッション | Claude が `SendMessage` ツールを呼ぶ | Claude → Claude |
 | `codex-queue` | Codex セッション | `codex queue --thread <name> --message "<text>"` | 宛先が Codex |
 
-roster YAML の `transport:` で宛先ごとに上書きできる。
+roster YAML の `transport:` で宛先ごとに上書きできる。省略時は優先順位順に解決（個別指定 > Claude→Claude は `sendmessage` > `defaults.transport` > 宛先=Codex は `codex-queue` > `herdr`）。`defaults.transport` は sendmessage 適格でない宛先への fallback として効く（Codex 宛の codex-queue 推定も潰れる点に注意）。
 
 ### placement（配置）— pane | tab
 
