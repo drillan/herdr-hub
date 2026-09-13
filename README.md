@@ -58,13 +58,18 @@ npx skills update herdr-hub
 # APM（apm.lock.yaml を再生成）
 apm update
 
-# GitHub CLI（対象を指定すれば対話なし。--all は全件一括）
-gh skill update herdr-hub
-gh skill update --all
+# GitHub CLI
+gh skill update herdr-hub       # 更新の確認（適用は対話確認または --all）
+gh skill update --all           # 全 skill を一括更新（非対話）
+
+# 非対話で herdr-hub だけ更新するなら再インストール（--force）
+gh skill install drillan/herdr-hub herdr-hub --force --scope user --agent claude-code
 
 # バージョン pin（インストール時 or 張り替え）
 gh skill install drillan/herdr-hub herdr-hub --pin v0.1.1
 ```
+
+`gh skill` の注意: **ソース repo 内で実行すると**配布元の `skills/herdr-hub/` が「metadata なし」として検出され対話が出る — repo の外で実行する。`--agent`（`claude-code` / `codex` / `devin` 等）と `--scope user` で配置先を制御できる。
 
 手動インストールの場合: symlink なら repo で `git pull` すれば即反映、コピーなら再コピー。
 
