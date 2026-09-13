@@ -51,11 +51,16 @@ hub の起動時に「名前 → 役割」の対応表を与える。
 2. **YAML**: `--roster <path>` で明示指定。省略時は cwd の `./.herdr-hub.yml` を読む（存在しなければ引数指定のみで動く）
 
 ```yaml
+defaults:                                # 全 agent の既定値（省略可）
+  placement: tab
+
 agents:
   hub:      { role: 統括,        transport: sendmessage }
   reviewer: { role: レビュー専任 }                        # transport 省略時は既定推定
-  worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: tab }
+  worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: pane }
 ```
+
+テンプレートは [.herdr-hub.yml.example](.herdr-hub.yml.example) — プロジェクトの cwd に `.herdr-hub.yml` としてコピーして使う。
 
 起動時に roster の全名前が `herdr agent list` で live に解決することを検証し、解決できない名前があれば即座にエラーとする。
 
@@ -71,10 +76,10 @@ roster YAML の `transport:` で宛先ごとに上書きできる。
 
 ### placement（配置）— pane | tab
 
-roster の `placement` で agent の起動時配置を選ぶ。
+roster の `placement` で agent の起動時配置を選ぶ。`defaults.placement` で全体既定を変えられる。
 
-- `pane`（既定）: 現 tab に pane split。2〜3 名までが実用域
-- `tab`: 新規 tab に配置。人数が増えても視認性が劣化しない
+- `tab`（既定）: 新規 tab に配置。人数が増えても視認性が劣化しない
+- `pane`: 現 tab に pane split。2〜3 名までが実用域
 
 ## ファイル構成
 

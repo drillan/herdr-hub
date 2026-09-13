@@ -2,19 +2,9 @@
 
 **正は「既に live な agent の調整」。** 起動そのものは人間または別の仕組みが行う前提。本書は hub が自分で pane/agent を用意する必要が生じたときの補助手順。
 
-## pane の配置（2 形態 — roster の `placement` で選択）
+## agent の配置（2 形態 — roster の `placement` で選択。既定は `tab`）
 
-### `placement: pane`（既定）— 現 tab に分割
-
-```bash
-herdr pane layout --pane "$HERDR_PANE_ID"    # 呼び出し pane の形状を見る
-herdr pane split --current --direction right --cwd "$PWD" --no-focus
-```
-
-- 広い pane は `right`、狭い/縦長は `down`。同方向の連続 split は使い物にならない列・行を生む
-- **2〜3 名までが実用域。** それ以上増えるなら `tab` へ
-
-### `placement: tab` — 新規 tab に置く
+### `placement: tab`（既定）— 新規 tab に置く
 
 ```bash
 herdr tab create --cwd "$PWD" --label <name> --no-focus
@@ -23,6 +13,16 @@ herdr tab create --cwd "$PWD" --label <name> --no-focus
 
 - 人数が増えても視認性が劣化しない。tab label に agent 名を付けるとサイドバーで役割が読める
 - export（[roster.md](roster.md)）で tab label が役割の初期値になる関係とも相性がよい
+
+### `placement: pane` — 現 tab に分割
+
+```bash
+herdr pane layout --pane "$HERDR_PANE_ID"    # 呼び出し pane の形状を見る
+herdr pane split --current --direction right --cwd "$PWD" --no-focus
+```
+
+- 広い pane は `right`、狭い/縦長は `down`。同方向の連続 split は使い物にならない列・行を生む
+- **2〜3 名までが実用域。** hub と並べて監視したい少数精鋭の編成向け
 
 ### 共通ルール・事後の移動
 
