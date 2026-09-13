@@ -31,7 +31,7 @@ Herdr セッション内で動く複数のコーディングエージェント�
 
 ## roster（名簿）
 
-hub の起動時に「役割 → agent」の対応表を与える。2 経路:
+hub の起動時に「名前 → 役割」の対応表を与える。2 経路:
 
 1. **起動引数**: skill 起動プロンプトに `reviewer: レビュー専任, advisor: 設計相談, worker1: 実装` のように `名前: 役割` を並べる
 2. **YAML**: `--roster <path>` で明示指定。省略時は cwd の `.herdr-hub.yml` を読む（存在しなければ引数指定のみで動く）
@@ -45,7 +45,7 @@ agents:
   worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: tab }
 ```
 
-フィールド: `role`（必須・役割）/ `transport`（既定推定で省略可）/ `handoff_at`（交代閾値・既定 0.8）/ `placement`（`pane` 既定 or `tab`。agent 数が増えたら tab が視認性で有利。後から `herdr pane move <id> --new-tab` で tab 化も可）
+フィールド: `role`（必須・役割）/ `transport`（既定推定で省略可）/ `handoff_at`（交代判定の使用率閾値・既定 0.8）/ `placement`（`pane` 既定 or `tab`。agent 数が増えたら tab が視認性で有利。後から `herdr pane move <id> --new-tab` で tab 化も可）
 
 ### roster の検証（起動時に必ず行う）
 
@@ -136,7 +136,7 @@ SKILL.md 本体に骨子、詳細は references へ:
 
 ### 交代の手順
 
-1. 残量 **80%** で交代判定（`handoff_at` で per-agent 上書き可）
+1. 使用率 **80%** で交代判定（`handoff_at` で per-agent 上書き可。⚠ 閾値は使用率であり残量ではない — メーター表記は `Context: 127k / 262k tokens (48%)` の使用率）
    - ⚠ **auto-compact 済みを検出したら閾値無視で即交代** — 要約済み記憶から書く handoff は二次記述で品質が劣る
 2. 前任生存中に後任を**仮名**（`<name>-next`）で起動（名前は live 間で一意のため同名を取れない）
 3. **briefing の内容ブロックは前任が後任へ直接送る**（現在の状態・最初の一手・既知の罠 — 落とした本人が最も詳しい。hub 中継の情報落下を避ける）

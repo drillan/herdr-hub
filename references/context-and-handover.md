@@ -6,6 +6,8 @@
 
 ```bash
 herdr pane read <pane> --source visible --lines 10
+# agent を名で解決するなら同じ source を取れる agent read でもよい
+herdr agent read <name> --source visible --lines 10
 ```
 
 - **Devin CLI（実測済み）**: footer に `Context: 127k / 262k tokens (48%)` が常時描画される（2026-09-13 実機確認）
@@ -24,15 +26,16 @@ herdr pane read <pane> --source visible --lines 10
 
 ## 交代の手順
 
-1. **残量 `handoff_at`（既定 80%）で交代判定。** roster YAML で per-agent 上書き可
-   - ⚠ **auto-compact 済みを検出したら閾値無視で即交代。** 要約済み記憶から書く handoff は二次記述で品質が劣る
-   - 閾値は「briefing を書くのに十分な残量があるうち」に置く。遅らせると利用率は上がるが handoff 品質のリスクを取る（交代コストの支配項は後任の再暖機で、発火時期に依存しない）
+1. **使用率 `handoff_at`（既定 80% = 80% 使用）で交代判定。** roster YAML で per-agent 上書き可
+   - ⚠ 閾値は**使用率**であり残量ではない。メーター表記は `Context: 127k / 262k tokens (48%)` の使用率なので、比較はそのまま `handoff_at` と行う
+   - ⚠ **auto-compact 済みを検出したら閾値無視で即交代。** 要約済み記憶から書く handoff は二次記述で品質が劣る。検出は pane read で: メーター使用率が高値から急落している、または scrollback に compaction 通知行がある（各 agent kind の表示は要実機確認）
+   - 閾値は「handoff を書くのに十分な残量が残っているうち」に置く。遅らせると利用率は上がるが handoff 品質のリスクを取る（交代コストの支配項は後任の再暖機で、発火時期に依存しない）
 2. **前任生存中に後任を仮名 `<name>-next` で起動**（名前は live 間で一意のため同名を取れない）。手順は [startup.md](startup.md)
 3. **briefing の内容ブロックは前任が後任へ直接送る**（[briefing.md](briefing.md) の分担表）
    - 前任が書く: 現在の状態 / 最初の一手 / 既知の罠
    - hub が書く: 宛先 guard / 役割と一元化 / 作法 / 境界 / 進め方
    - 送信は roster と同じ transport 推定で
-4. **前任 exit → roster を後任へ付け替え**（仮名のまま運用するか、再 `agent start` で正名を取るかは運用で選択）
+4. **前任 exit → 名の整理。** `herdr agent rename <name>-next <name>` で後任へ正名を付けるのが最も簡単（roster のキーがそのまま使える）。仮名のまま運用してもよい
 
 ## 発火時コストを常時化して潰す
 

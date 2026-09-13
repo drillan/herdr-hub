@@ -47,5 +47,5 @@ codex queue --thread <SESSION_UUID or 厳密セッション名> --message "<text
 - **CLI コマンド**なので送り手は codex でなくてよい — hub が Devin でも使える
 - セッションの入力キューに積む。idle なら起床して新ターン、ターン中なら次の入力として待機（割り込まない）
 - `--remote wss://host:port` で他マシンの app-server にも届く
-- ⚠ **公式リファレンス未掲載**（codex-cli 0.154.0 の `--help` で実在確認済み、2026-09-13）。将来の版で変わりうるので使用前に `codex queue --help` で確認する
+- ⚠ **公式リファレンス未掲載**（0.149.0 で導入との報告あり。実機確認は codex-cli 0.154.0 の `--help`、2026-09-13）。将来の版で変わりうるので使用前に `codex queue --help` で確認する
 - `--thread` は UUID か**厳密なセッション名**。命名規約で herdr agent name と揃える

@@ -53,7 +53,7 @@ herdr agent start reviewer --kind claude --pane <pane-id> -- --name reviewer
 | 系統 | 付け方 |
 |---|---|
 | herdr agent name | `herdr agent start <name>` の引数 |
-| Claude セッション名 | `-- claude --name <同じ名前>` |
+| Claude セッション名 | `herdr agent start <name> --kind claude --pane <id> -- --name <同じ名前>`（`--` 以降は claude バイナリの argv になるため `claude` は書かない） |
 | Codex セッション名 | codex 側の session name を同名に |
 
 揃っていれば `herdr` / `sendmessage` / `codex-queue` どの transport でも roster の 1 名前で届く。

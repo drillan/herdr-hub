@@ -26,7 +26,7 @@ agents:
 |---|---|---|---|
 | `role` | string | （必須） | 役割の説明。briefing にそのまま使う |
 | `transport` | `herdr` \| `sendmessage` \| `codex-queue` | [transports.md](transports.md) の既定推定 | この宛先への送信経路 |
-| `handoff_at` | float (0–1) | `0.8` | 交代判定の残量閾値。詳細は [context-and-handover.md](context-and-handover.md) |
+| `handoff_at` | float (0–1) | `0.8` | 交代判定の使用率閾値（80% 使用で発火）。詳細は [context-and-handover.md](context-and-handover.md) |
 | `placement` | `pane` \| `tab` | `pane` | 起動時の配置。人数が増えたら `tab` が視認性で有利（[startup.md](startup.md)） |
 
 名前は `[a-z][a-z0-9_-]{0,31}`（herdr agent name の規約）に合わせる。命名規約全体（claude `--name`・codex session name との統一）は [startup.md](startup.md)。
@@ -40,6 +40,7 @@ herdr agent list   # .result.agents[].name（または pane_id）と roster の�
 ```
 
 - **解決できない名前が 1 つでもあれば即座にエラー**として人間に報告する。黙ってスキップ・警告で続行しない
+- **返信宛先 `hub` が live に解決することも確認する。** worker の返信経路は `herdr agent prompt hub` 固定のため、自分（呼び出し側）の herdr agent name が `hub` でないなら `herdr agent rename <self-pane> hub` で付けるか、briefing で返信先名を明示する
 - 逆方向も見る: live だが roster に無い agent があれば、名簿の陳腐化として人間に確認する
 - roster が古い・矛盾する場合の修復は人間の判断。hub が勝手に roster を書き換えない
 
@@ -53,12 +54,17 @@ herdr agent list                                  # name ↔ pane_id ↔ tab_id
 2 つの JSON を突合し、各 agent の tab label を `role` の初期値にした YAML 雛形を生成する:
 
 ```bash
-herdr agent list | python3 -c "
-import json,sys
-agents=json.load(sys.stdin)['result']['agents']
-print('agents:')
+# agent の tab_id と tab label を join して role の初期値にする
+python3 - <<'PY'
+import json, subprocess
+agents = json.loads(subprocess.check_output(["herdr","agent","list"]))["result"]["agents"]
+tabs = {t["tab_id"]: t["label"] for t in json.loads(
+    subprocess.check_output(["herdr","tab","list","--workspace",subprocess.run(
+        ["printenv","HERDR_WORKSPACE_ID"],capture_output=True,text=True).stdout.strip()]))["result"]["tabs"]}
+print("agents:")
 for a in agents:
-    print(f\"  {a['name']}: {{ role: TODO-tab-{a.get('tab_id','?')} }}\")"
+    print(f"  {a['name']}: {{ role: {tabs.get(a.get('tab_id'),'TODO')} }}")
+PY
 ```
 
 生成物はあくまで雛形 — `role` を実際の役割に書き換えてから使う。

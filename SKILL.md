@@ -10,7 +10,7 @@ Herdr セッション内の複数コーディングエージェントを統括�
 
 - 名簿の形式・検証・export → [references/roster.md](references/roster.md)
 - transport 3 種の詳細と既定推定 → [references/transports.md](references/transports.md)
-- 送受信・待機・エラー対処の作法 → [references/messaging.md](references/messaging.md)
+- 送受信・待機・往復削減・着地の作法 → [references/messaging.md](references/messaging.md)
 - worker へ渡す briefing の雛形 → [references/briefing.md](references/briefing.md)
 - agent の起動・配置・命名（補助） → [references/startup.md](references/startup.md)
 - context 残量の観測と交代手順 → [references/context-and-handover.md](references/context-and-handover.md)
@@ -32,7 +32,7 @@ test "${HERDR_ENV:-}" = 1
 
 ## §1 roster（名簿）
 
-hub の起動時に「役割 → agent」の対応表を得る。2 経路:
+hub の起動時に「名前 → 役割」の対応表を得る。2 経路:
 
 1. **起動引数**: `reviewer: レビュー専任, worker1: 実装` のように `名前: 役割` を並べる
 2. **YAML**: `--roster <path>` で明示指定。省略時は cwd の `.herdr-hub.yml`
@@ -80,7 +80,7 @@ YAML の `transport:` で個別上書き可。各経路の要件・コマンド�
 
 ## §6 context 残量と交代
 
-- **観測は `pane read --source visible` で外側から**（worker の文脈を消費しない）
+- **観測は `agent read` / `pane read` の `--source visible` で外側から**（worker の文脈を消費しない）
 - 処置は 続行 / compact / 交代 の 3 択。**80% で交代判定**・auto-compact 検出で即交代
 - 交代は **前任が内容ブロックを後任へ直接送る**（hub はエンベロープを書く）
 
