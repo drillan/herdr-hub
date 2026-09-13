@@ -60,7 +60,7 @@ agents:
   worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: pane }
 ```
 
-テンプレートは [.herdr-hub.yml.example](.herdr-hub.yml.example) — プロジェクトの cwd に `.herdr-hub.yml` としてコピーして使う。
+テンプレートは [.herdr-hub.yml.example](skills/herdr-hub/.herdr-hub.yml.example)（skill 同梱） — プロジェクトの cwd に `.herdr-hub.yml` としてコピーして使う。
 
 起動時に roster の全名前が `herdr agent list` で live に解決することを検証し、解決できない名前があれば即座にエラーとする。
 
@@ -94,7 +94,7 @@ skills/herdr-hub/                         # skill 本体（この dir が ~/.cla
     startup.md                            # agent の起動・配置・命名（補助）
     context-and-handover.md               # context 残量の観測と交代手順
     failure-modes.md                      # 実害カタログ（transport・運用の罠）
-.herdr-hub.yml.example                    # roster YAML テンプレート（repo 付属物）
+  .herdr-hub.yml.example                  # roster YAML テンプレート（skill 同梱）
 docs/superpowers/
   specs/2026-09-13-herdr-hub-design.md    # 設計 spec
   plans/2026-09-13-herdr-hub.md           # 実装計画

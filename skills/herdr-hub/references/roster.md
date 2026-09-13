@@ -27,7 +27,7 @@ agents:
   worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: pane }
 ```
 
-テンプレートは repo の `.herdr-hub.yml.example` — 作業対象プロジェクトの cwd に `.herdr-hub.yml` としてコピーして使う。
+テンプレートはこの skill 同梱の [.herdr-hub.yml.example](../.herdr-hub.yml.example) — 作業対象プロジェクトの cwd に `.herdr-hub.yml` としてコピーして使う。
 
 | フィールド | 型 | 既定 | 意味 |
 |---|---|---|---|
