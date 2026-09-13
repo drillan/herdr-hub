@@ -76,7 +76,7 @@ YAML の `transport:` で個別上書き可。各経路の要件・コマンド�
 
 ## §5 worker の起動（補助）
 
-正は「既に live な agent の調整」。pane split / `agent start` / 命名規約（herdr agent name = `claude --name` = codex session name）の手順は [references/startup.md](references/startup.md) が持つ。skill が自動で編成・起動まで行うのは将来拡張。
+正は「既に live な agent の調整」。配置（pane split / tab create・既定 tab）/ `agent start` / 命名規約（herdr agent name = `claude --name` = codex session name）の手順は [references/startup.md](references/startup.md) が持つ。skill が自動で編成・起動まで行うのは将来拡張。
 
 ## §6 context 残量と交代
 

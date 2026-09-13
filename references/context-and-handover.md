@@ -35,7 +35,7 @@ herdr agent read <name> --source visible --lines 10
    - 前任が書く: 現在の状態 / 最初の一手 / 既知の罠
    - hub が書く: 宛先 guard / 役割と一元化 / 作法 / 境界 / 進め方
    - 送信は roster と同じ transport 推定で
-4. **前任 exit → 名の整理。** `herdr agent rename <name>-next <name>` で後任へ正名を付けるのが最も簡単（roster のキーがそのまま使える）。仮名のまま運用してもよい
+4. **前任 exit → 名の整理。** `herdr agent rename <name>-next <name>` で後任へ正名を付けるのが最も簡単（roster のキーがそのまま使える）。仮名のまま運用するなら roster のキーを `<name>-next` に付け替える必要がある — どちらか一方は必ず行う
 
 ## 発火時コストを常時化して潰す
 

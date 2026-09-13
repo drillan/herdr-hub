@@ -14,7 +14,7 @@ Herdr 管理端末上で動く複数のコーディングエージェント（Cl
 ## 要件
 
 - **Herdr 環境**: `HERDR_ENV=1`（herdr 管理 pane 内で動作することが前提。CLI 構文の正典はインストール済みバイナリの `herdr --help`）
-- **agent kind**: herdr が認識するコーディングエージェント（Claude Code / Codex / Devin 等）。一覧は `herdr agent` で確認
+- **agent kind**: herdr が認識するコーディングエージェント（Claude Code / Codex / Devin 等）。一覧は `herdr agent start --help` の `--kind` で確認
 - **transport ごとの追加要件**:
   - `sendmessage`（Claude → Claude）: 両端とも Claude Code **v2.1.224 以上**、かつ同一マシン上でセッション登録ファイルを共有できること（コンテナ・WSL 跨ぎは不可）
   - `codex-queue`（任意 → Codex）: `codex queue` コマンド。公式リファレンス未掲載の新機能（0.149.0 で導入との報告、実機確認は **0.154.0**）。使用前に `codex queue --help` で確認

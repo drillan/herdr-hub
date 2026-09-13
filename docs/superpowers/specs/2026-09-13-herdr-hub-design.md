@@ -39,6 +39,9 @@ hub の起動時に「名前 → 役割」の対応表を与える。2 経路:
 YAML スキーマ（案）:
 
 ```yaml
+defaults:                                # 全 agent の既定値（省略可。agent 個別の指定が優先）
+  placement: tab
+
 agents:
   hub:      { role: 統括,        transport: sendmessage }
   reviewer: { role: レビュー専任 }                        # transport 省略時は既定推定
@@ -61,7 +64,7 @@ agents:
 |---|---|---|---|
 | `herdr` | 全 agent 種（既定） | CLI: `herdr agent prompt <name> "<text>"` | herdr 認識 agent |
 | `sendmessage` | Claude セッション | agent tool（Claude が `SendMessage` を呼ぶ） | 送り手も Claude。Claude Code v2.1.224+ |
-| `codex-queue` | Codex セッション | CLI: `codex queue --thread <name> --message "<text>"` | 誰でも送れる。codex-cli 0.149+（実機は 0.154.0 で確認） |
+| `codex-queue` | Codex セッション | CLI: `codex queue --thread <name> --message "<text>"` | 誰でも送れる。0.149.0 で導入との報告、実機確認は 0.154.0（`codex queue --help` で要確認） |
 
 ### transport の既定推定
 

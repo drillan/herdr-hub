@@ -29,7 +29,7 @@ herdr pane split --current --direction right --cwd "$PWD" --no-focus
 - **`--no-focus` を付ける** — 人間のフォーカスを奪わない
 - **`--cwd "$PWD"` を明示する** — 呼び出し側の cwd を引き継ぐ
 - 新 pane ID は応答の `.result.pane.pane_id`（tab なら `.result.root_pane.pane_id`）を読む。サイドバーの並びから推測しない
-- 既存 pane を後から tab 化できる: `herdr pane move <pane_id> --new-tab --label <name> --no-focus`（移動後は `.result.move_result.pane.pane_id` の新 ID を使う）
+- 既存 pane を後から tab 化できる: `herdr pane move <pane_id> --new-tab --tab-label <name> --no-focus`（移動後は `.result.move_result.pane.pane_id` の新 ID を使う）。`pane move` には `--label`（pane 側のラベルと推定）と `--tab-label`（新規 tab のラベル）の 2 フラグがあり、tab 名を付ける意図では `--tab-label` を使う。`--label` の意味差は help に記載がなく実機未検証
 - workspace / worktree の新設は人間が明示した場合だけ
 
 ## agent の起動
@@ -42,7 +42,7 @@ herdr agent start reviewer --kind claude --pane <pane-id> -- --name reviewer
 ```
 
 - 名前は `[a-z][a-z0-9_-]{0,31}`、live agent 間で一意。**roster の名前をそのまま使う**
-- kind 一覧とオプションは `herdr agent` で確認（インストール済みバイナリが正典）
+- kind 一覧とオプションは `herdr agent start --help` で確認（`--kind` の possible values に列挙される。インストール済みバイナリが正典）
 - agent 固有の引数は `--` 以降に渡す
 - 起動 timeout は既定 30 秒。`agent_not_ready` で返っても**名前は保持され**、`agent read`/`send-keys` は使える。idle になるまで待ってから prompt する
 

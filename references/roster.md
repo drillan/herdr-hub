@@ -47,7 +47,7 @@ herdr agent list   # .result.agents[].name（または pane_id）と roster の�
 ```
 
 - **解決できない名前が 1 つでもあれば即座にエラー**として人間に報告する。黙ってスキップ・警告で続行しない
-- **返信宛先 `hub` が live に解決することも確認する。** worker の返信経路は `herdr agent prompt hub` 固定のため、自分（呼び出し側）の herdr agent name が `hub` でないなら `herdr agent rename <self-pane> hub` で付けるか、briefing で返信先名を明示する
+- **返信宛先 `hub` が live に解決することも確認する。** worker の返信経路は `herdr agent prompt hub` 固定のため、自分（呼び出し側）の herdr agent name が `hub` でないなら `herdr agent rename <self-pane> hub` で付けるか、briefing で返信先名を明示する。`sendmessage` 経路を使う場合は受け手の Claude セッション名（`claude --name` / `/rename`）も `hub` に揃える必要がある — `agent rename` が変えるのは herdr 名のみ
 - 逆方向も見る: live だが roster に無い agent があれば、名簿の陳腐化として人間に確認する
 - roster が古い・矛盾する場合の修復は人間の判断。hub が勝手に roster を書き換えない
 

@@ -5,7 +5,8 @@
 
 defaults:                 # 全 agent の既定値（agent 個別の指定が優先）
   placement: tab          # pane | tab（省略時 tab）
-  # transport: herdr      # herdr | sendmessage | codex-queue（省略時は宛先 kind から既定推定）
+  # transport: herdr      # herdr | sendmessage | codex-queue（省略時は送り手・宛先 kind から既定推定。
+  #                       # ここで固定すると宛先別の既定推定が全 agent で潰れるため、通常は書かない）
   # handoff_at: 0.8       # 交代判定の使用率閾値 0–1（省略時 0.8 = 80% 使用で発火）
 
 agents:
