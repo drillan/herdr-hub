@@ -42,8 +42,10 @@ YAML スキーマ（案）:
 agents:
   hub:      { role: 統括,        transport: sendmessage }
   reviewer: { role: レビュー専任 }                        # transport 省略時は既定推定
-  worker1:  { role: 実装,        transport: herdr }
+  worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: tab }
 ```
+
+フィールド: `role`（必須・役割）/ `transport`（既定推定で省略可）/ `handoff_at`（交代閾値・既定 0.8）/ `placement`（`pane` 既定 or `tab`。agent 数が増えたら tab が視認性で有利。後から `herdr pane move <id> --new-tab` で tab 化も可）
 
 ### roster の検証（起動時に必ず行う）
 

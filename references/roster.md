@@ -19,7 +19,7 @@ hub が調整対象を知るための「名前 → 役割」の対応表。roste
 agents:
   hub:      { role: 統括,        transport: sendmessage }
   reviewer: { role: レビュー専任 }                        # transport 省略時は既定推定
-  worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9 }
+  worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: tab }
 ```
 
 | フィールド | 型 | 既定 | 意味 |
@@ -27,6 +27,7 @@ agents:
 | `role` | string | （必須） | 役割の説明。briefing にそのまま使う |
 | `transport` | `herdr` \| `sendmessage` \| `codex-queue` | [transports.md](transports.md) の既定推定 | この宛先への送信経路 |
 | `handoff_at` | float (0–1) | `0.8` | 交代判定の残量閾値。詳細は [context-and-handover.md](context-and-handover.md) |
+| `placement` | `pane` \| `tab` | `pane` | 起動時の配置。人数が増えたら `tab` が視認性で有利（[startup.md](startup.md)） |
 
 名前は `[a-z][a-z0-9_-]{0,31}`（herdr agent name の規約）に合わせる。命名規約全体（claude `--name`・codex session name との統一）は [startup.md](startup.md)。
 

@@ -2,7 +2,9 @@
 
 **正は「既に live な agent の調整」。** 起動そのものは人間または別の仕組みが行う前提。本書は hub が自分で pane/agent を用意する必要が生じたときの補助手順。
 
-## pane の配置
+## pane の配置（2 形態 — roster の `placement` で選択）
+
+### `placement: pane`（既定）— 現 tab に分割
 
 ```bash
 herdr pane layout --pane "$HERDR_PANE_ID"    # 呼び出し pane の形状を見る
@@ -10,10 +12,25 @@ herdr pane split --current --direction right --cwd "$PWD" --no-focus
 ```
 
 - 広い pane は `right`、狭い/縦長は `down`。同方向の連続 split は使い物にならない列・行を生む
+- **2〜3 名までが実用域。** それ以上増えるなら `tab` へ
+
+### `placement: tab` — 新規 tab に置く
+
+```bash
+herdr tab create --cwd "$PWD" --label <name> --no-focus
+# 応答の .result.root_pane.pane_id に agent start する
+```
+
+- 人数が増えても視認性が劣化しない。tab label に agent 名を付けるとサイドバーで役割が読める
+- export（[roster.md](roster.md)）で tab label が役割の初期値になる関係とも相性がよい
+
+### 共通ルール・事後の移動
+
 - **`--no-focus` を付ける** — 人間のフォーカスを奪わない
 - **`--cwd "$PWD"` を明示する** — 呼び出し側の cwd を引き継ぐ
-- 新 pane ID は応答の `.result.pane.pane_id` を読む。サイドバーの並びから推測しない
-- workspace / tab / worktree の新設は人間が明示した場合だけ。既定は現 tab の兄弟 pane
+- 新 pane ID は応答の `.result.pane.pane_id`（tab なら `.result.root_pane.pane_id`）を読む。サイドバーの並びから推測しない
+- 既存 pane を後から tab 化できる: `herdr pane move <pane_id> --new-tab --label <name> --no-focus`（移動後は `.result.move_result.pane.pane_id` の新 ID を使う）
+- workspace / worktree の新設は人間が明示した場合だけ
 
 ## agent の起動
 
