@@ -22,14 +22,14 @@ Herdr 管理端末上で動く複数のコーディングエージェント（Cl
 
 ## インストール
 
-repo root がそのまま skill ディレクトリ（`SKILL.md` + `references/`）になっている。この repo を `~/.claude/skills/herdr-hub` へ symlink またはコピーする。
+skill 本体は `skills/herdr-hub/`（`SKILL.md` + `references/`）にある（`gh skill publish` が前提とする `skills/<name>/` 構成）。これを `~/.claude/skills/herdr-hub` へ symlink またはコピーする。
 
 ```bash
 # symlink（開発中はこちら。repo の更新がそのまま反映される）
-ln -s /path/to/herdr-hub ~/.claude/skills/herdr-hub
+ln -s /path/to/herdr-hub/skills/herdr-hub ~/.claude/skills/herdr-hub
 
 # コピー
-cp -r /path/to/herdr-hub ~/.claude/skills/herdr-hub
+cp -r /path/to/herdr-hub/skills/herdr-hub ~/.claude/skills/herdr-hub
 ```
 
 ## 使い方
@@ -84,15 +84,17 @@ roster の `placement` で agent の起動時配置を選ぶ。`defaults.placeme
 ## ファイル構成
 
 ```
-SKILL.md                                  # skill 入口（骨子 + references 索引）
-references/
-  roster.md                               # 名簿の形式・検証・export
-  transports.md                           # transport 3 種の詳細と既定推定
-  messaging.md                            # 送受信・待機・往復削減・着地の作法
-  briefing.md                             # worker へ渡す briefing の雛形
-  startup.md                              # agent の起動・配置・命名（補助）
-  context-and-handover.md                 # context 残量の観測と交代手順
-  failure-modes.md                        # 実害カタログ（transport・運用の罠）
+skills/herdr-hub/                         # skill 本体（この dir が ~/.claude/skills/herdr-hub へ置かれる）
+  SKILL.md                                # skill 入口（骨子 + references 索引）
+  references/
+    roster.md                             # 名簿の形式・検証・export
+    transports.md                         # transport 3 種の詳細と既定推定
+    messaging.md                          # 送受信・待機・往復削減・着地の作法
+    briefing.md                           # worker へ渡す briefing の雛形
+    startup.md                            # agent の起動・配置・命名（補助）
+    context-and-handover.md               # context 残量の観測と交代手順
+    failure-modes.md                      # 実害カタログ（transport・運用の罠）
+.herdr-hub.yml.example                    # roster YAML テンプレート（repo 付属物）
 docs/superpowers/
   specs/2026-09-13-herdr-hub-design.md    # 設計 spec
   plans/2026-09-13-herdr-hub.md           # 実装計画

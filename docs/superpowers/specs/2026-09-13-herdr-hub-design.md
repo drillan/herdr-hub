@@ -26,7 +26,7 @@ Herdr セッション内で動く複数のコーディングエージェント�
 ## 配置形態
 
 - **ユーザーレベル skill**（全プロジェクト・全エージェントから使える位置）
-- 本リポジトリが開発の正典。repo root = skill ディレクトリ（`SKILL.md` + `references/`）とし、インストールは `~/.claude/skills/herdr-hub` 等へのコピーまたは symlink で行う
+- 本リポジトリが開発の正典。`skills/<name>/` 構成（`skills/herdr-hub/SKILL.md` + `skills/herdr-hub/references/`）とし、インストールは `~/.claude/skills/herdr-hub` 等へのコピーまたは symlink で行う。`skills/<name>/` 構成は `gh skill publish` の前提でもある
 - プラグイン化・他マシンへの配布は将来の拡張とし、本 spec の範囲外
 
 ## roster（名簿）
