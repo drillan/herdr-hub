@@ -5,8 +5,9 @@
 
 defaults:                 # 全 agent の既定値（agent 個別の指定が優先）
   placement: tab          # pane | tab（省略時 tab）
-  # transport: herdr      # herdr | sendmessage | codex-queue。native 経路を持たない宛先への
-  #                       # fallback（Claude 宛の sendmessage・Codex 宛の codex-queue 推定は潰れない）
+  # transport: herdr      # native 経路を持たない宛先への fallback（実質 herdr のみ有効 —
+  #                       # 非 Claude 宛に sendmessage は送れず、非 Codex 宛に codex-queue の
+  #                       #  thread は解決しない。native 推定は潰れない）
   # handoff_at: 0.8       # 交代判定の使用率閾値 0–1（省略時 0.8 = 80% 使用で発火）
 
 agents:

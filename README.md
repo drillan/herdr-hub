@@ -100,6 +100,7 @@ defaults:                                # 全 agent の既定値（省略可。
 agents:
   hub:      { role: 統括,        transport: sendmessage }
   reviewer: { role: レビュー専任 }                        # 省略フィールドは defaults → 組み込み既定の順で解決
+                                                        #（transport だけは native 推定が defaults より先。下の優先順位を参照）
   worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: pane }
 ```
 

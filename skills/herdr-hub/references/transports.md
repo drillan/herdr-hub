@@ -15,7 +15,8 @@
 ### `defaults.transport` の効き方
 
 - 規則 4 は規則 2・3 の native 推定より後に効く — **native 経路を持たない宛先にだけ適用される fallback**。書いても Claude 宛の sendmessage・Codex 宛の codex-queue 推定は潰れない
-- Claude hub で `defaults.transport: herdr` と書くと「**Claude 宛は sendmessage、Codex 宛は codex-queue、それ以外は herdr**」のモードになる
+- fallback 先として実質意味を持つのは `herdr` のみ — 非 Claude 宛に `sendmessage`（Claude のツール）は送れず、非 Codex 宛に `codex-queue` の thread は解決しない
+- Claude hub で `defaults.transport: herdr` と書くと「**Claude 宛は sendmessage、Codex 宛は codex-queue、それ以外は herdr**」のモードになる。Codex 宛にも herdr を使いたい場合は agent 個別に `transport: herdr` を書く（規則 1 で強制できる）
 
 ## `herdr`（既定・汎用）
 
