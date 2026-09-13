@@ -31,7 +31,7 @@ Herdr セッション内で動く複数のコーディングエージェント�
 
 ## roster（名簿）
 
-hub の起動時に「役割 → agent」の対応表を与える。2 経路:
+hub の起動時に「名前 → 役割」の対応表を与える。2 経路:
 
 1. **起動引数**: skill 起動プロンプトに `reviewer: レビュー専任, advisor: 設計相談, worker1: 実装` のように `名前: 役割` を並べる
 2. **YAML**: `--roster <path>` で明示指定。省略時は cwd の `.herdr-hub.yml` を読む（存在しなければ引数指定のみで動く）
@@ -39,11 +39,16 @@ hub の起動時に「役割 → agent」の対応表を与える。2 経路:
 YAML スキーマ（案）:
 
 ```yaml
+defaults:                                # 全 agent の既定値（省略可。agent 個別の指定が優先）
+  placement: tab
+
 agents:
   hub:      { role: 統括,        transport: sendmessage }
   reviewer: { role: レビュー専任 }                        # transport 省略時は既定推定
-  worker1:  { role: 実装,        transport: herdr }
+  worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: pane }
 ```
+
+フィールド: `role`（必須・役割）/ `transport`（既定推定で省略可）/ `handoff_at`（交代判定の使用率閾値・既定 0.8）/ `placement`（`tab` 既定 or `pane`。後から `herdr pane move <id> --new-tab` で tab 化も可）。トップレベル `defaults:` で全 agent の既定値を与えられる（agent 個別指定が優先）。雛形は repo の `.herdr-hub.yml.example`
 
 ### roster の検証（起動時に必ず行う）
 
@@ -59,7 +64,7 @@ agents:
 |---|---|---|---|
 | `herdr` | 全 agent 種（既定） | CLI: `herdr agent prompt <name> "<text>"` | herdr 認識 agent |
 | `sendmessage` | Claude セッション | agent tool（Claude が `SendMessage` を呼ぶ） | 送り手も Claude。Claude Code v2.1.224+ |
-| `codex-queue` | Codex セッション | CLI: `codex queue --thread <name> --message "<text>"` | 誰でも送れる。codex-cli 0.149+（実機は 0.154.0 で確認） |
+| `codex-queue` | Codex セッション | CLI: `codex queue --thread <name> --message "<text>"` | 誰でも送れる。0.149.0 で導入との報告、実機確認は 0.154.0（`codex queue --help` で要確認） |
 
 ### transport の既定推定
 
@@ -134,7 +139,7 @@ SKILL.md 本体に骨子、詳細は references へ:
 
 ### 交代の手順
 
-1. 残量 **80%** で交代判定（`handoff_at` で per-agent 上書き可）
+1. 使用率 **80%** で交代判定（`handoff_at` で per-agent 上書き可。⚠ 閾値は使用率であり残量ではない — メーター表記は `Context: 127k / 262k tokens (48%)` の使用率）
    - ⚠ **auto-compact 済みを検出したら閾値無視で即交代** — 要約済み記憶から書く handoff は二次記述で品質が劣る
 2. 前任生存中に後任を**仮名**（`<name>-next`）で起動（名前は live 間で一意のため同名を取れない）
 3. **briefing の内容ブロックは前任が後任へ直接送る**（現在の状態・最初の一手・既知の罠 — 落とした本人が最も詳しい。hub 中継の情報落下を避ける）

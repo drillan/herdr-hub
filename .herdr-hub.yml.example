@@ -1,0 +1,16 @@
+# herdr-hub roster テンプレート
+# 使い方: このファイルを作業対象プロジェクトの cwd に `.herdr-hub.yml` としてコピーし、
+# agents の名前・役割を実際の live agent に合わせて書き換える。
+# 注意: roster の正は live の agent。ここに書くだけでは agent は起動しない。
+
+defaults:                 # 全 agent の既定値（agent 個別の指定が優先）
+  placement: tab          # pane | tab（省略時 tab）
+  # transport: herdr      # herdr | sendmessage | codex-queue（省略時は送り手・宛先 kind から既定推定。
+  #                       # ここで固定すると宛先別の既定推定が全 agent で潰れるため、通常は書かない）
+  # handoff_at: 0.8       # 交代判定の使用率閾値 0–1（省略時 0.8 = 80% 使用で発火）
+
+agents:
+  hub:      { role: 統括 }
+  reviewer: { role: レビュー専任 }
+  worker1:  { role: 実装 }
+  # worker2:  { role: 実装, placement: pane, handoff_at: 0.9 }
