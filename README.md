@@ -22,7 +22,26 @@ Herdr 管理端末上で動く複数のコーディングエージェント（Cl
 
 ## インストール
 
-skill 本体は `skills/herdr-hub/`（`SKILL.md` + `references/`）にある（`gh skill publish` が前提とする `skills/<name>/` 構成）。これを `~/.claude/skills/herdr-hub` へ symlink またはコピーする。
+skill 本体は `skills/herdr-hub/`（`SKILL.md` + `references/`）にある（`skills/<name>/` 構成）。
+
+### パッケージマネージャ経由
+
+```bash
+# skills.sh
+npx skills add drillan/herdr-hub
+
+# APM
+apm install drillan/herdr-hub
+
+# GitHub CLI（preview）
+gh skill install drillan/herdr-hub herdr-hub
+```
+
+⚠ `gh skill install` は **`gh skill publish` によるリリース公開後にのみ有効**。現時点では未実施のため、上 2 つまたは下記の手動インストールを使う。
+
+### 手動インストール（開発用）
+
+`skills/herdr-hub/` を `~/.claude/skills/herdr-hub` へ symlink またはコピーする。
 
 ```bash
 # symlink（開発中はこちら。repo の更新がそのまま反映される）
