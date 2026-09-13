@@ -100,6 +100,7 @@ SKILL.md 本体に骨子、詳細は references へ:
 - `references/transports.md` — transport 3 種の詳細と既定推定表
 - `references/briefing.md` — GHE 要素を抜いた汎用 briefing 雛形（宛先 guard → 役割 → 最初の一手 → 既知の罠 → 作法 → 境界 → 進め方）
 - `references/startup.md` — pane split / agent start / 命名規約（補助的・段階的。起動そのものは人間または別手段が行う前提を正とする）
+- `references/context-and-handover.md` — 下記「context 残量と交代」の詳細
 - `references/failure-modes.md` — 上記「罠」+ `agent wait` 監視禁止 + herdr 固有の失敗面
 
 規律の骨子（`multi-session-hub` から汎用化して転記）:
@@ -113,6 +114,41 @@ SKILL.md 本体に骨子、詳細は references へ:
 - 中継は情報を落とす — 件数・集合の再掲を添える
 - 着地したら終える（「終了です」通知も送らない。例外: 走行中の review を止める「停止」1 行）
 - context 使用率は実測でのみ書く。worker に定期申告させない
+
+## context 残量と交代
+
+### 観測
+
+- **第一は `herdr agent read` / `pane read` で statusline の context メーターを外側から読む** — worker の文脈を消費しない（herdr 環境の利点）
+- 読み取れない agent kind は**オンデマンド申告のみ**（定期申告は往復コスト + 捏造を招いた実績があるため禁止）
+
+### 処置の 3 択（判断は hub）
+
+| 処置 | 向く場面 |
+|---|---|
+| 続行 | 残量に余裕 |
+| compact | タスク途中。名前・roster・briefing が存続するので最も安い |
+| 交代 | タスクの継ぎ目（PR・issue 単位）。herdr では agent だけ入れ替えられる |
+
+### 交代の手順
+
+1. 残量 **80%** で交代判定（`handoff_at` で per-agent 上書き可）
+   - ⚠ **auto-compact 済みを検出したら閾値無視で即交代** — 要約済み記憶から書く handoff は二次記述で品質が劣る
+2. 前任生存中に後任を**仮名**（`<name>-next`）で起動（名前は live 間で一意のため同名を取れない）
+3. **briefing の内容ブロックは前任が後任へ直接送る**（現在の状態・最初の一手・既知の罠 — 落とした本人が最も詳しい。hub 中継の情報落下を避ける）
+   - エンベロープ（宛先 guard・役割・作法・境界）は **hub が書く**（roster 全体の文脈は hub にしかない）
+4. 前任 exit → roster を後任へ付け替え
+
+### 発火時コストを常時化して潰す
+
+交代コストの支配項は**後任の context 再暖機**であり、発火時期に依存しない。発火時に安全に書き切るため:
+
+- worker は進捗・判断・罠を **固定パスの共有ログ**（`/tmp/herdr-hub/<name>.log`）へ随時追記する（briefing の作法に含める）
+- handoff は「ログのパス + 差分」で済む → 発火時生成コスト ≈ 0 → 高い閾値でも安全
+
+### hub 自身の交代
+
+`.herdr-hub.yml` の **roster ファイルが新規 hub セッションの再開資材**になる。人間が新セッションで `herdr-hub --roster` を起動すれば hub だけ交換して運用を継続できる。
 
 ## 起動フェーズの責務（段階的）
 
