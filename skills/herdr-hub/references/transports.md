@@ -12,7 +12,7 @@
 4. **`defaults.transport`**（roster YAML トップレベル。native 経路を持たない宛先への fallback）
 5. **それ以外 → `herdr`**（汎用。観測も兼ねる）
 
-明示値 `transport: auto` は省略と同じく自動解決する — 規則 1 には合致せず規則 2 以降を辿る（「経路なし」を意味する `none` や `defaults:` と紛らわしい `default` とは別物）。
+明示値 `transport: auto` は省略と同じく自動解決する — 規則 1 には合致せず規則 2 以降を辿る（「経路なし」を意味する `none` や `defaults:` と紛らわしい `default` とは別物）。`defaults.transport: auto` も同じく no-op（書かないのと同じ）として扱う。
 
 ### `defaults.transport` の効き方
 
