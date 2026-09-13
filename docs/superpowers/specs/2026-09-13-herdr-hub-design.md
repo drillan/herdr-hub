@@ -120,7 +120,9 @@ SKILL.md 本体に骨子、詳細は references へ:
 ### 観測
 
 - **第一は `herdr agent read` / `pane read` で statusline の context メーターを外側から読む** — worker の文脈を消費しない（herdr 環境の利点）
-- 読み取れない agent kind は**オンデマンド申告のみ**（定期申告は往復コスト + 捏造を招いた実績があるため禁止）
+- **実測済み（Devin CLI）**: footer に `Context: 127k / 262k tokens (48%)` が常時描画され、`pane read --source visible` で scrape できる（2026-09-13 実機確認）
+- **Claude / Codex は要実機確認**。常時表示が無い・読めない場合の fallback: `/context`（Claude）や `/status`（Codex）等の **クライアント側 slash コマンドを pane へ打ち込んで描画を読む** — モデルの文脈を消費せず、読み終えたら esc で閉じる
+- それでも取れない場合は**オンデマンド申告のみ**（定期申告は往復コスト + 捏造を招いた実績があるため禁止）
 
 ### 処置の 3 択（判断は hub）
 
