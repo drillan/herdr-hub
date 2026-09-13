@@ -37,6 +37,8 @@ agents:
 | `handoff_at` | float (0–1) | `0.8` | 交代判定の使用率閾値（80% 使用で発火）。詳細は [context-and-handover.md](context-and-handover.md) |
 | `placement` | `pane` \| `tab` | `tab` | 起動時の配置。少数を横に並べて監視したいなら `pane`（[startup.md](startup.md)） |
 
+`role_file` は agent 個別フィールド — `defaults:` 配下に書いても適用されない。また起動引数（`名前: 役割` 列挙）では渡せず **YAML 経路限定**。
+
 名前は `[a-z][a-z0-9_-]{0,31}`（herdr agent name の規約）に合わせる。命名規約全体（claude `--name`・codex session name との統一）は [startup.md](startup.md)。
 
 ## 起動時検証（必須）
