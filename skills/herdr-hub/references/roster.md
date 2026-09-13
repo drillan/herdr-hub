@@ -31,7 +31,8 @@ agents:
 
 | フィールド | 型 | 既定 | 意味 |
 |---|---|---|---|
-| `role` | string | （必須） | 役割の説明。briefing にそのまま使う |
+| `role` | string | （必須） | 役割の説明（短いラベル）。briefing にそのまま使う |
+| `role_file` | string（パス） | （なし） | 長文の役割定義 .md へのパス（roster YAML のある dir からの相対）。briefing の役割ブロックへ内容をそのまま注入する — レビュー手順のような standalone skill と共有できるよう、長文 role をファイル単位で持つ用途 |
 | `transport` | `herdr` \| `sendmessage` \| `codex-queue` \| `auto` | `auto` | この宛先への送信経路。`auto` は省略と同じく自動解決する明示値（[transports.md](transports.md) の優先順位） |
 | `handoff_at` | float (0–1) | `0.8` | 交代判定の使用率閾値（80% 使用で発火）。詳細は [context-and-handover.md](context-and-handover.md) |
 | `placement` | `pane` \| `tab` | `tab` | 起動時の配置。少数を横に並べて監視したいなら `pane`（[startup.md](startup.md)） |
@@ -47,6 +48,7 @@ herdr agent list   # .result.agents[].name（または pane_id）と roster の�
 ```
 
 - **解決できない名前が 1 つでもあれば即座にエラー**として人間に報告する。黙ってスキップ・警告で続行しない
+- **`role_file` を指定した agent については、ファイルが存在し読めることも確認する。** 不在・読めない場合は live 名解決と同じく**即座にエラー**
 - **返信宛先 `hub` が live に解決することも確認する。** worker の返信経路は `herdr agent prompt hub` 固定のため、自分（呼び出し側）の herdr agent name が `hub` でないなら `herdr agent rename <self-pane> hub` で付けるか、briefing で返信先名を明示する。`sendmessage` 経路を使う場合は受け手の Claude セッション名（`claude --name` / `/rename`）も `hub` に揃える必要がある — `agent rename` が変えるのは herdr 名のみ
 - 逆方向も見る: live だが roster に無い agent があれば、名簿の陳腐化として人間に確認する
 - roster が古い・矛盾する場合の修復は人間の判断。hub が勝手に roster を書き換えない
