@@ -142,6 +142,16 @@ roster の `placement` で agent の起動時配置を選ぶ。`defaults.placeme
 - `tab`（既定）: 新規 tab に配置。人数が増えても視認性が劣化しない
 - `pane`: 現 tab に pane split。2〜3 名までが実用域
 
+### 交代（handover）
+
+context 使用率が `handoff_at`（既定 0.8 = 80% 使用）に達したら交代判定。流れ:
+
+1. 前任生存中に後任を仮名 `<name>-next` で起動（live 間で名は一意のため同名を取れない）
+2. briefing の内容ブロック（現在の状態・最初の一手・既知の罠）は**前任が後任へ直接送る**（hub はエンベロープを書く）
+3. 前任 exit 後に正名を取る — `agent rename` に加え **pane ラベル・tab ラベルも rename が必要**（追従しない）
+
+詳細は [context-and-handover.md](skills/herdr-hub/references/context-and-handover.md)。
+
 ## ファイル構成
 
 ```
