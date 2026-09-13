@@ -1,1 +1,9 @@
 .herdr-hub.yml
+
+# agent skill の install 先 — 外部 skill が混入して publish されないよう無視
+# （release skill の正本 .agents/skills/release と各 symlink は追跡済みのまま残る）
+.agents/skills/*
+!.agents/skills/release/
+.claude/skills/
+.codex/skills/
+.devin/skills/
