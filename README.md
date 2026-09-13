@@ -37,8 +37,6 @@ apm install drillan/herdr-hub
 gh skill install drillan/herdr-hub herdr-hub
 ```
 
-⚠ `gh skill install` は **`gh skill publish` によるリリース公開後にのみ有効**。現時点では未実施のため、上 2 つまたは下記の手動インストールを使う。
-
 ### 手動インストール（開発用）
 
 `skills/herdr-hub/` を `~/.claude/skills/herdr-hub` へ symlink またはコピーする。
@@ -50,6 +48,25 @@ ln -s /path/to/herdr-hub/skills/herdr-hub ~/.claude/skills/herdr-hub
 # コピー
 cp -r /path/to/herdr-hub/skills/herdr-hub ~/.claude/skills/herdr-hub
 ```
+
+### 更新
+
+```bash
+# skills.sh
+npx skills update herdr-hub
+
+# APM（apm.lock.yaml を再生成）
+apm update
+
+# GitHub CLI（対象を指定すれば対話なし。--all は全件一括）
+gh skill update herdr-hub
+gh skill update --all
+
+# バージョン pin（インストール時 or 張り替え）
+gh skill install drillan/herdr-hub herdr-hub --pin v0.1.1
+```
+
+手動インストールの場合: symlink なら repo で `git pull` すれば即反映、コピーなら再コピー。
 
 ## 使い方
 
