@@ -23,3 +23,4 @@ description: herdr-hub のリリース手順（gh skill publish で GitHub relea
 - publish は **GitHub release を作成する**。コミットしていない変更は含まれない — main に push 済みか先に確認
 - tag ruleset で immutable なので、誤った tag は二度と消せない。救済は Settings → Rules で ruleset を一時 disabled にするのみ
 - この repo の配布 skill は `skills/herdr-hub/` のみ。`.agents/` は publish の発見対象外
+- **publish が tag だけ作成して失敗することがある**（GitHub API の 500 等）。`git ls-remote --tags origin` で tag を確認し、指すコミットが正しければ `gh release create <tag> --generate-notes`（または `gh api -X POST repos/<owner>/<repo>/releases -f tag_name=<tag> -f name=<tag>`）で後追い作成できる。tag が間違ったコミットを指す場合は ruleset を一時 disabled にして削除し直す
