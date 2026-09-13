@@ -1,6 +1,7 @@
 ---
 name: herdr-hub
 description: Herdr セッション内の複数コーディングエージェント (Claude Code / Codex / Devin 等) を hub-spoke で調整する runbook。呼び出したエージェントが hub になる。「別エージェントに作業を頼みたい」「複数 agent を並行運用したい」「pane の agent 同士で連携させたい」「worker / reviewer を束ねたい」で起動。HERDR_ENV=1 が前提。
+license: MIT
 ---
 
 # herdr-hub

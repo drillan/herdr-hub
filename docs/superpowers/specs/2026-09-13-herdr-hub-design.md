@@ -26,7 +26,7 @@ Herdr セッション内で動く複数のコーディングエージェント�
 ## 配置形態
 
 - **ユーザーレベル skill**（全プロジェクト・全エージェントから使える位置）
-- 本リポジトリが開発の正典。repo root = skill ディレクトリ（`SKILL.md` + `references/`）とし、インストールは `~/.claude/skills/herdr-hub` 等へのコピーまたは symlink で行う
+- 本リポジトリが開発の正典。`skills/<name>/` 構成（`skills/herdr-hub/SKILL.md` + `skills/herdr-hub/references/`）とし、インストールは `~/.claude/skills/herdr-hub` 等へのコピーまたは symlink で行う。`skills/<name>/` 構成は `gh skill publish` の前提でもある
 - プラグイン化・他マシンへの配布は将来の拡張とし、本 spec の範囲外
 
 ## roster（名簿）
@@ -48,7 +48,7 @@ agents:
   worker1:  { role: 実装,        transport: herdr, handoff_at: 0.9, placement: pane }
 ```
 
-フィールド: `role`（必須・役割）/ `transport`（既定推定で省略可）/ `handoff_at`（交代判定の使用率閾値・既定 0.8）/ `placement`（`tab` 既定 or `pane`。後から `herdr pane move <id> --new-tab` で tab 化も可）。トップレベル `defaults:` で全 agent の既定値を与えられる（agent 個別指定が優先）。雛形は repo の `.herdr-hub.yml.example`
+フィールド: `role`（必須・役割）/ `transport`（既定推定で省略可）/ `handoff_at`（交代判定の使用率閾値・既定 0.8）/ `placement`（`tab` 既定 or `pane`。後から `herdr pane move <id> --new-tab` で tab 化も可）。トップレベル `defaults:` で全 agent の既定値を与えられる（agent 個別指定が優先）。雛形は skill 同梱の `.herdr-hub.yml.example`
 
 ### roster の検証（起動時に必ず行う）
 
