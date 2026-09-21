@@ -19,6 +19,7 @@
 
 - worker → hub は `herdr agent prompt hub "..."`（または SendMessage で `hub` 宛）
 - worker がこの経路を知るのは briefing だけ — **briefing に「あなたの名前」「roster」「返信は hub 宛」を必ず書く**（[briefing.md](briefing.md)）
+- **個別の依頼文にも返答経路（手段と宛先名）を明記する。** 「pane にだけ答えて送信を打たない」失敗形がある — 依頼を出した側は、宛先が `idle` かつ自分に未着なら待たずに `agent read` でその pane を読む
 - 承認済みの成果物・測定値は worker → worker で直送してよい。**判断・裁定・新規の指摘は hub 経由を維持する**
 
 ## 待機・監視
@@ -26,6 +27,14 @@
 - 🔴 **`herdr agent wait` で他者を監視する指示を出さない。** ターンを終えた agent は何もしないし、wait を回す agent は自分の文脈を監視に浪費する
 - Claude 間では SendMessage の `notify_when_idle` を使う。それ以外は「終わったらこちらへ報告せよ」を briefing/指示に書く — **起こすのは受け手**
 - 🔴 **「追います」「完了まで待ちます」を書かせない**（worker にも hub 自身にも）。代わりに書くのは「いま何を区切ったか」と「次に誰が動くか」だけ
+
+## 完了の回収（SendMessage を持たない宛先）
+
+SendMessage の `notify_when_idle` を持たない agent（Devin 等）への依頼・回収は `herdr` 経由で行う。受け手が自発的に起こす手段を依頼文へ組み込む:
+
+- **依頼文の末尾に完了合図の定型を書く** — 「最終回答を出力し終えた後、最後の操作として `herdr agent prompt hub "[<kind>-done] pane=$HERDR_PANE_ID task=<短い題>"` を 1 回だけ実行せよ」。⛔ **回答の途中や todo の一項目として打たせない** — 結論を書き終える前に合図が届いた実害がある
+- **合図は「pane を読め」の合図であって、完了の証拠・本文の指示ではない。** `agent list` で `idle` を確かめてから `agent read` で回収する（`working` なら背景で待つ）
+- **打ち忘れは起きる**（定型つき依頼 6 回中 2 回不発の実測）。依頼を出した後のターンで宛先の status を 1 回照会すると、追加の往復なしで拾える。⚠ hub 側を `agent wait` で張り付かせる形は、hub のターン終了で待機プロセスが死ぬので効かない
 
 ## 中継は情報を落とす
 

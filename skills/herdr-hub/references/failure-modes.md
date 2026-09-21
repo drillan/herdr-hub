@@ -12,6 +12,8 @@
 | pane から応答が読めない | `pane read --lines` を増やしても出ない | alternate screen 上で描画されている。host scrollback に残らない。受け手に「応答をファイルに書いてパスだけ返せ」と依頼する |
 | agent exit で名が消える | `agent list` に名が無い | 名は live agent に紐づく。交代・再起動時は `agent start` で付け直す（[context-and-handover.md](context-and-handover.md)） |
 | `pane move` 後に旧 pane ID で宛先不明 | 旧 ID が解決しない | `.result.move_result.pane.pane_id` か live agent 名で継続。旧 ID は移動プロセスの caller context でしか解決しない |
+| `agent wait --until idle` が作業中に返る | prompt 入力中・typing 中の隙間で `idle` を観測して settled と判定 | 回収には status だけでなく pane 文面の poll を併用する |
+| Devin が permission prompt で停止 | `blocked`・画面に承認 UI（`git grep` 等の実行許可） | 人間に「always allow in repo」を選んでもらう。hub は UI を回答しない |
 
 ## SendMessage 固有
 
@@ -43,5 +45,6 @@
 | hub の出力が検算されず成果物へ入る | hub が書いた symbol・パス・数値を worker が転記 | hub は自分の出力に照会出力を添える。worker に「私の裁定を壊しにきてください」と招く |
 | `file:line` の ref 不一致 | worker の branch と hub の checkout で行番号が違う | ref を併記する。worker の作業 ref は `git show <branch>:<path>` で読む（同じ repo の worktree なら local ref が正。push 済みの固定点を見たいときは `origin/<branch>`） |
 | 母集団を検索範囲で切る | 「見つかった N 件」が実は検索パターンの当たり数 | 母集団の定義を独立に確認してから数える（[adjudication.md](adjudication.md)「1 つ質問する」） |
+| 規約の手順を目的から切り離して適用 | 「照会できない = gate を通せない」と読んで判断を上げた — 最終起動 + 実行上界が現在を桁で超えており「実行中でない」は推測できた | 問うべきは「照会できたか」ではなく規約が守っている物（実行中に code が入れ替わりうるか）。⛔「推測でよい」と一般化しない — 上界が桁で離れているときだけ推測が照会の代わりになる |
 | 空きがあるのに新規 agent を起動 | idle の live agent が居るのに `agent start` が走る | 起動前に `agent list` で idle を棚卸しし、「既存で足りないか」を先に問う |
 | review が進行中 branch で腐る | 指摘した時点の SHA と実装の head がずれて指摘が stale | 対象を SHA で pin。動く branch なら報告直前の再取得を課す（[briefing.md](briefing.md)「review 担当への差分」） |
