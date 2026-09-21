@@ -1,6 +1,6 @@
-# startup（agent の起動・配置 — 補助）
+# startup（agent の起動・配置）
 
-**正は「既に live な agent の調整」。** 起動そのものは人間または別の仕組みが行う前提。本書は hub が自分で pane/agent を用意する必要が生じたときの補助手順。
+roster は**編成の意図（desired state）**を記述する（[roster.md](roster.md)）。live に無いが `kind` を持つエントリは起動対象であり、hub が本書の手順で起動する。`kind` を持たない未 live エントリは即エラー（typo 検出を守るため）。
 
 ## agent の配置（2 形態 — roster の `placement` で選択。既定は `tab`）
 
@@ -46,6 +46,15 @@ herdr agent start reviewer --kind claude --pane <pane-id> -- --name reviewer
 - agent 固有の引数は `--` 以降に渡す
 - 起動 timeout は既定 30 秒。`agent_not_ready` で返っても**名前は保持され**、`agent read`/`send-keys` は使える。idle になるまで待ってから prompt する
 
+### roster からの起動（`kind` を持つ未 live エントリ）
+
+roster 検証（[roster.md](roster.md)）で起動対象と判定されたエントリを起動する手順:
+
+1. `agent list` で **idle の live agent を棚卸し**し、「既存で足りないか」を先に問う — 空きがあるのに新規を起動するのは文脈予算の浪費。既存で足りるなら起動せず、その旨を人間へ提案する
+2. **起動前に人間へ編成案を 1 行で確認する**（「roster の `worker1` `worker2` を `kind: claude` で起動します」）。agent の起動は pane が増え briefing 受信でトークンを消費し始める **環境への変更**なので、確認なしに自動で spawn しない
+3. `placement` に従い tab/pane を用意し、`agent start <name> --kind <kind> --pane <pane-id>`
+4. `agent list` で live 解決を再確認 → briefing 送信（**稼働途中の追加なら「現在の状態」入り 8 ブロック版**）
+
 ## 命名規約（重要）
 
 宛先解決を 1 つの roster で済ませるため **3 系統の名前を揃える**:
@@ -66,5 +75,5 @@ herdr agent start reviewer --kind claude --pane <pane-id> -- --name reviewer
 
 ## 注意
 
-- 自動で大量に agent を起動する編成機能は**意図的に持たない**（将来拡張）。まず既存 agent の調整で運用実績を積む
+- 自動起動は **`kind` を持つエントリ限定 + 人間の確認付き**。roster に無い agent を hub が勝手に作らない
 - `agent start` に失敗した pane は残る — 閉じる判断は人間の指示があるまで行わない

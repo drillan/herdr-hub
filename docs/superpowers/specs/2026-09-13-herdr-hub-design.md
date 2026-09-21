@@ -2,6 +2,8 @@
 
 2026-09-13
 
+> ⚠ **改訂あり**: roster の desired-state 化・`rules`/`presets`/`kind`・`role_file`→`role_def` 改名・B 層吸収は [2026-09-21-roster-desired-state-design.md](2026-09-21-roster-desired-state-design.md) が正典。本書の「roster の正は live」「role_file」「自動起動は将来拡張」はその時点の記述。
+
 ## 目的
 
 Herdr セッション内で動く複数のコーディングエージェント（Claude Code / Codex / Devin 等、種混在可）を、**hub-spoke 構成で調整するための運用 runbook skill** を作る。

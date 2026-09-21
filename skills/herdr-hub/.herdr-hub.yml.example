@@ -1,22 +1,39 @@
 # herdr-hub roster テンプレート
 # 使い方: このファイルを作業対象プロジェクトの cwd に `.herdr-hub.yml` としてコピーし、
-# agents の名前・役割を実際の live agent に合わせて書き換える。
-# 注意: roster の正は live の agent。ここに書くだけでは agent は起動しない。
+# agents / presets を実際の編成に合わせて書き換える。
+# roster は編成の意図を記述する — kind を持つ未 live エントリは hub が起動する
+# （起動前に人間へ編成案の確認を取る）。
 
-defaults:                 # 全 agent の既定値（agent 個別の指定が優先）
+presets:                  # 名前付きの設定テンプレート（省略可）
+  impl:
+    role: 実装
+    # role_def: roles/impl.md            # 長文の役割定義 .md（このファイルのある dir からの相対）
+    # rules: [.herdr-hub/worker-rules.md] # 規律 file。worker は briefing へ注入、hub は起動時に読む
+    kind: claude          # live に無いとき起動対象になるマーカー（herdr agent start --kind の値）
+    # placement: pane
+    # handoff_at: 0.9
+  reviewer:
+    role: レビュー専任
+    kind: devin           # 未 live なら devin で起動する
+
+defaults:                 # 全 agent の既定値（preset → 個別の順で上書き。rules だけは union）
+                          # ⚠ 有効なのは rules/transport/placement/handoff_at のみ。
+                          #   role/role_def/preset/kind は preset か個別指定に限る
   placement: tab          # pane | tab（省略時 tab）
+  # rules: [.herdr-hub/common.md]       # 全員共通の規律（agent 個別の rules と union される）
   # transport: herdr      # 値: herdr | sendmessage | codex-queue | auto
   #                       # native 経路を持たない宛先への fallback（実質 herdr のみ有効 —
   #                       # 非 Claude 宛に sendmessage は送れず、非 Codex 宛に codex-queue の
   #                       #  thread は解決しない。auto は書かないのと同じ no-op。native 推定は潰れない）
   # handoff_at: 0.8       # 交代判定の使用率閾値 0–1（省略時 0.8 = 80% 使用で発火）
 
-agents:
+agents:                   # 空 `{}` または省略も可 — hub 単独で起きて全部動的に足す運用
   hub:      { role: 統括 }
-  reviewer: { role: レビュー専任 }
-  worker1:  { role: 実装 }
-  # worker2:  { role: 実装, placement: pane, handoff_at: 0.9 }
+  # hub:    { role: 統括, rules: [.herdr-hub/merge-gate.md] }  # hub が起動時に読む手順書
+  reviewer: { preset: reviewer }          # presets のキーを参照（未定義名はエラー）
+  worker1:  { preset: impl }
+  # worker2:  { preset: impl, placement: tab }   # 個別指定が preset を上書き
+  # worker3:  { role: 実装 }               # preset・kind 無し = live 前提。未 live なら即エラー
   # transport の値（agent 個別）: herdr | sendmessage | codex-queue | auto
   # （auto = 省略と同じ自動解決の明示値）
-  # role_file: docs/roles/reviewer.md   # 任意。長文の役割定義 .md へのパス
-  #                                    # （このファイルのある dir からの相対）
+  # role_file: ...  は改名済み — role_def を使う（role_file を書くとエラーになる）

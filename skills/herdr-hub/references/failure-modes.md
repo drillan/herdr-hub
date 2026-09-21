@@ -38,3 +38,10 @@
 | 指摘が非同期に届き受け手が何度も直す | 同じ対象への修正 push が繰り返される | 指摘は 1 便に合流。blocker のみ例外 |
 | auto-compact 後に handoff を書く | 要約済み記憶からの二次記述で品質が劣る | auto-compact 検出で即交代（閾値無視） |
 | 着地後の挨拶往復 | 「終了です」「了解です」が往復する | 着地したら何も送らない。例外は走行中への「停止」1 行だけ |
+| 直列待ちが構造化される | 複数判定が open のまま受け手が順に止まる | 裁定に「誰が・いつ着手」を書く。hub が閉じられるものは hub が閉じる（[messaging.md](messaging.md)「直列待ちを作らない」） |
+| worker の枠組みを hub が追認する | 裁定文に worker の数値がそのまま入り、後で母集団違いが発覚 | 裁定を書く直前に「何を測った値か」「baseline は」を 1 問訊く（[adjudication.md](adjudication.md)） |
+| hub の出力が検算されず成果物へ入る | hub が書いた symbol・パス・数値を worker が転記 | hub は自分の出力に照会出力を添える。worker に「私の裁定を壊しにきてください」と招く |
+| `file:line` の ref 不一致 | worker の branch と hub の checkout で行番号が違う | ref を併記する。worker の作業 ref は `git show <branch>:<path>` で読む（同じ repo の worktree なら local ref が正。push 済みの固定点を見たいときは `origin/<branch>`） |
+| 母集団を検索範囲で切る | 「見つかった N 件」が実は検索パターンの当たり数 | 母集団の定義を独立に確認してから数える（[adjudication.md](adjudication.md)「1 つ質問する」） |
+| 空きがあるのに新規 agent を起動 | idle の live agent が居るのに `agent start` が走る | 起動前に `agent list` で idle を棚卸しし、「既存で足りないか」を先に問う |
+| review が進行中 branch で腐る | 指摘した時点の SHA と実装の head がずれて指摘が stale | 対象を SHA で pin。動く branch なら報告直前の再取得を課す（[briefing.md](briefing.md)「review 担当への差分」） |

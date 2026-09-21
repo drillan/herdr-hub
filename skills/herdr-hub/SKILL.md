@@ -13,8 +13,10 @@ Herdr セッション内の複数コーディングエージェントを統括�
 - transport 3 種の詳細と既定推定 → [references/transports.md](references/transports.md)
 - 送受信・待機・往復削減・着地の作法 → [references/messaging.md](references/messaging.md)
 - worker へ渡す briefing の雛形 → [references/briefing.md](references/briefing.md)
-- agent の起動・配置・命名（補助） → [references/startup.md](references/startup.md)
+- agent の起動・配置・命名 → [references/startup.md](references/startup.md)
 - context 残量の観測と交代手順 → [references/context-and-handover.md](references/context-and-handover.md)
+- 裁定の境界（裁く/人間へ上げる、決断の要求の時機） → [references/escalation.md](references/escalation.md)
+- hub の裁定の質（裏取り・hub 自身の出力を疑う） → [references/adjudication.md](references/adjudication.md)
 - 実害カタログ（transport・運用の罠） → [references/failure-modes.md](references/failure-modes.md)
 
 ## §0 前提
@@ -38,9 +40,17 @@ hub の起動時に「名前 → 役割」の対応表を得る。2 経路:
 1. **起動引数**: `reviewer: レビュー専任, worker1: 実装` のように `名前: 役割` を並べる
 2. **YAML**: `--roster <path>` で明示指定。省略時は cwd の `.herdr-hub.yml`
 
-**起動時に必ず検証する**: roster の全名前が `herdr agent list` で live に解決すること。**解決できない名前があれば即座にエラー**。黙ってスキップしない。
+roster は **編成の意図（desired state）** を記述する。`agents:` は空でもよい（hub 単独で起き、後から動的に足す運用）。
 
-スキーマ・優先順位・export 手順 → [references/roster.md](references/roster.md)
+**起動時に必ず検証する** — 各エントリを 3 分岐で処理する:
+
+- **live に解決できる** → そのまま
+- **live に無い + `kind` が解決できる**（個別 or `presets:` 経由） → **起動対象**。人間へ編成案を 1 行確認してから `herdr agent start` で起動（[references/startup.md](references/startup.md)）
+- **live に無い + `kind` 無し** → **即座にエラー**。黙ってスキップ・警告で続行しない（typo 検出を守る）
+
+あわせて、`presets:` / `defaults:` / agent 個別の参照先 `role_def`・`rules` file がすべて存在し読めることを確認（不在・不可読は即エラー）。**hub の `rules` / `role_def` は hub 自身がここで読む** — worker 向けは briefing へ注入する（delivery の非対称は [references/roster.md](references/roster.md)「rules の delivery」）。
+
+スキーマ・優先順位（`defaults` → `preset` → 個別）・`rules` の union・動的追加・export 手順 → [references/roster.md](references/roster.md)
 
 ## §2 transport（通信経路）
 
@@ -74,10 +84,17 @@ YAML の `transport:` で個別上書き可。`defaults.transport` は native �
 - **中継は情報を落とす** — 件数・集合の再掲を添える
 - **着地したら終える。** 「終了です」通知も送らない（例外: 走行中の review を止める「停止」1 行）
 - **context 使用率は実測でのみ書く。** worker に定期申告させない
+- **裁定の境界を先に引く。** 裁くものと人間へ上げるものを分ける。正典（spec・ADR）が矛盾・不在なら自分の原理で解かずに上げる → [references/escalation.md](references/escalation.md)
+- **hub は不変条件を裁き、手段は worker が決める。** 手段の裁定は実測でしか決まらず、hub は走らせる側に居ない
+- **裁定に worker の数値・分類を引く前に 1 問訊く**（「何を測った値か」「baseline は」）。**hub 自身の出力を疑う** — worker に「私の裁定を壊しにきてください」と招く → [references/adjudication.md](references/adjudication.md)
+- **状態の観測を重複させない**（CI の緑/赤等は 1 箇所だけが測る）。**判定（主張の真偽）は独立に取り直す** — こちらの重複は価値である
+- **review 役を置くなら、その出力を裏取りする経路を置く**（hub が一次資料で読み直す / review 役に読んだ file の列挙を課す）
+- **裁定は材料を出した全セッションへ戻す。** 届いていないものは追えない — 戻すのは裁定した側の義務
+- **新しい agent を起動する前に `agent list` で idle を棚卸しし、「既存で足りないか」を問う**
 
-## §5 worker の起動（補助）
+## §5 worker の起動
 
-正は「既に live な agent の調整」。配置（pane split / tab create・既定 tab）/ `agent start` / 命名規約（herdr agent name = `claude --name` = codex session name）の手順は [references/startup.md](references/startup.md) が持つ。skill が自動で編成・起動まで行うのは将来拡張。
+roster の `kind` を持つ未 live エントリは起動対象 — 人間への編成案確認の後に hub が起動する。配置（pane split / tab create・既定 tab）/ `agent start` / 命名規約（herdr agent name = `claude --name` = codex session name）の手順は [references/startup.md](references/startup.md) が持つ。稼働中の追加は roster への 1 行追記 → 同じ検証・起動経路を通す（[references/roster.md](references/roster.md)「動的追加」）。
 
 ## §6 context 残量と交代
 
