@@ -59,3 +59,10 @@ codex queue --thread <SESSION_UUID or 厳密セッション名> --message "<text
 - `--remote wss://host:port` で他マシンの app-server にも届く
 - ⚠ **公式リファレンス未掲載**（0.149.0 で導入との報告あり。実機確認は codex-cli 0.154.0 の `--help`、2026-09-13）。将来の版で変わりうるので使用前に `codex queue --help` で確認する
 - `--thread` は UUID か**厳密なセッション名**。命名規約で herdr agent name と揃える
+
+## 名前解決のスコープ
+
+🔴 **native 経路（`sendmessage`・`codex queue`）の名前解決はマシン全域であり、herdr の session・workspace を跨ぐ。** 別 herdr セッション・別 workspace に同名の agent がいると、そちらへ届きうる（`herdr agent prompt` の名前解決は継承したセッション内に閉じる）。
+
+- 集団が混在する環境（同一マシンで複数の hub 集団が動く等）では、宛先を **`herdr agent prompt` に限定する**運用が安全側
+- `herdr --session` / `--machine` / `--remote` で自分の継承コンテキスト外のソケットへ接続する使い方も同じ穴 — 干渉は自分のセッション内に留める

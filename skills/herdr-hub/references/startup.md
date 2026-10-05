@@ -46,6 +46,11 @@ herdr agent start reviewer --kind claude --pane <pane-id> -- --name reviewer
 - agent 固有の引数は `--` 以降に渡す
 - 起動 timeout は既定 30 秒。`agent_not_ready` で返っても**名前は保持され**、`agent read`/`send-keys` は使える。idle になるまで待ってから prompt する
 
+### kind 固有の起動引数
+
+- **`kind: devin` には `-- --permission-mode dangerous` を付ける。** 省略すると permission-mode `auto` で起き、tool 承認待ちで黙って停止する（herdr pane 越しでは承認プロンプトへの応答が定形操作に載らない）。⚠ `dangerous` はプロジェクトの deny list まで auto-approve する — deny を維持したいなら hook 側（PreToolUse）で塞ぐ構成が要る（hooks は permission mode と独立に走る）
+- **`kind: claude` には `-- --name <同名>`**（命名規約を揃えるため。下の表）
+
 ### roster からの起動（`kind` を持つ未 live エントリ）
 
 roster 検証（[roster.md](roster.md)）で起動対象と判定されたエントリを起動する手順:

@@ -14,6 +14,7 @@ Herdr セッション内の複数コーディングエージェントを統括�
 - 送受信・待機・往復削減・着地の作法 → [references/messaging.md](references/messaging.md)
 - worker へ渡す briefing の雛形 → [references/briefing.md](references/briefing.md)
 - agent の起動・配置・命名 → [references/startup.md](references/startup.md)
+- worktree 編成と成果の束ね方 → [references/worktrees.md](references/worktrees.md)
 - context 残量の観測と交代手順 → [references/context-and-handover.md](references/context-and-handover.md)
 - 裁定の境界（裁く/人間へ上げる、決断の要求の時機） → [references/escalation.md](references/escalation.md)
 - hub の裁定の質（裏取り・hub 自身の出力を疑う） → [references/adjudication.md](references/adjudication.md)

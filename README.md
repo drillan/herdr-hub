@@ -173,7 +173,7 @@ context 使用率が `handoff_at`（既定 0.8 = 80% 使用）に達したら交
 この repo からは 2 つの skill を配布する（`gh skill install drillan/herdr-hub <name>` で個別インストール可）:
 
 - **herdr-hub** — 上記の hub-spoke 運用 runbook
-- **herdr-session** — `session stop` → `attach` でリセットされる agent 名を capture/restore するユーティリティ（`skills/herdr-session/`）
+- **herdr-session** — `session stop` → `attach` でリセットされる agent 名を capture/restore するユーティリティ（`skills/herdr-session/`）。HERDR_ENV=1 の pane 内で `herdr-session capture`（stop 前・rename 後）/ `herdr-session restore`（attach 後）/ `herdr-session status` を実行。照合は native session UUID で行うため pane ID の変動に強い。詳細は同 skill の SKILL.md
 
 ```
 skills/herdr-session/                      # agent 名の capture/restore（HERDR_ENV=1 の pane 内で実行）
@@ -187,6 +187,7 @@ skills/herdr-hub/                         # skill 本体（この dir が ~/.cla
     messaging.md                          # 送受信・待機・往復削減・着地の作法
     briefing.md                           # worker へ渡す briefing の雛形
     startup.md                            # agent の起動・配置・命名（roster の kind から起動対象を判定）
+    worktrees.md                          # worktree 編成・複数 worktree の成果の束ね方・撤去判定
     context-and-handover.md               # context 残量の観測と交代手順
     escalation.md                         # 裁定の境界（裁く/上げる・決断の要求の時機）
     adjudication.md                       # hub の裁定の質（裏取り・hub 自身の出力を疑う）

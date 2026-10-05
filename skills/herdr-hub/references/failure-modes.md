@@ -15,6 +15,10 @@
 | `pane move` 後に旧 pane ID で宛先不明 | 旧 ID が解決しない | `.result.move_result.pane.pane_id` か live agent 名で継続。旧 ID は移動プロセスの caller context でしか解決しない |
 | `agent wait --until idle` が作業中に返る | prompt 入力中・typing 中の隙間で `idle` を観測して settled と判定 | 回収には status だけでなく pane 文面の poll を併用する |
 | Devin が permission prompt で停止 | `blocked`・画面に承認 UI（`git grep` 等の実行許可） | 人間に「always allow in repo」を選んでもらう。hub は UI を回答しない |
+| `tab create` が別 workspace に作られる | 意図しない workspace に空の tab が出現 | `--workspace` 省略時は **UI フォーカス中の workspace** に作られる。必ず `--workspace "$HERDR_WORKSPACE_ID"` を付ける（実害: 他人の workspace に tab 3 個） |
+| herdr 制御コマンドが permission に拒否される | `agent prompt`/`agent start`/`tab create` が分類器に拒否される | 複合コマンド（`cd`・`;`・パイプ・`echo >>` の同梱）は permission allow の**先頭一致**から外れ、分類器の判定に回る。**制御コマンドは単独で打つ**（roster・log 更新は別コマンドに分ける） |
+| SendMessage / `codex queue` が別集団の同名 agent に届く | 意図しない pane で応答・別 herdr セッションの agent が動く | 名前解決は**マシン全域**（セッション・workspace を跨ぐ）。集団が混在する環境では宛先を `herdr agent prompt` に限定する（[transports.md](transports.md)） |
+| agent 終了後に空の pane/tab が残る | `pane list` に agent の消えた pane が残る | agent の exit と pane/tab の回収は別。worker には自分の `herdr pane close "$HERDR_PANE_ID"` を、hub の retire は `pane close <pane_id>` を（[messaging.md](messaging.md)「着地」） |
 
 ## SendMessage 固有
 
@@ -49,3 +53,8 @@
 | 規約の手順を目的から切り離して適用 | 「照会できない = gate を通せない」と読んで判断を上げた — 最終起動 + 実行上界が現在を桁で超えており「実行中でない」は推測できた | 問うべきは「照会できたか」ではなく規約が守っている物（実行中に code が入れ替わりうるか）。⛔「推測でよい」と一般化しない — 上界が桁で離れているときだけ推測が照会の代わりになる |
 | 空きがあるのに新規 agent を起動 | idle の live agent が居るのに `agent start` が走る | 起動前に `agent list` で idle を棚卸しし、「既存で足りないか」を先に問う |
 | review が進行中 branch で腐る | 指摘した時点の SHA と実装の head がずれて指摘が stale | 対象を SHA で pin。動く branch なら報告直前の再取得を課す（[briefing.md](briefing.md)「review 担当への差分」） |
+| `gh issue comment --edit-last` が他人のコメントを上書き | 他セッションの直後コメントが書き換わる | 全 agent の author は同一なので `--edit-last` は他人を掴む。**comment ID 指定の `gh api -X PATCH`** を使う |
+| `pgrep -f` が自分自身を拾う | 走査対象が無いのに 1 件ヒット | 自分のコマンド行にパターンが入るため。`pgrep -af '[p]ytest'` のようにブラケット記法で自分を除外する |
+| 「確かめる」と「走らせる」を 1 コマンドに並べる | `pgrep ...; make test` で他 agent の実行と衝突 | 結果を読む前に走り始めるので確かめていないのと同じ。**別コマンドに分け、出力を読んでから走らせる**。確かめた事実を次の実行に使い回さない |
+| merge 済みかを ancestry で判定 | `git rev-list --count origin/main..<branch>` が N 件で「未 merge」 | squash・rebase merge は祖先を切るため merge 済みでも N 件になる。**PR 側から引く**: `gh pr list --state all --json number,headRefName,state,mergedAt`（`--head` は既定 open のみ → merge 済みは 0 件に見える） |
+| `2>/dev/null` 付き照会の 0 件 | 「remote に無い」と読んで撤去などに進む | 「無い」と「訊けなかった（DNS・SSH 不通）」が同じ出力。**0 件を不在の証拠にしない** — エラー出力を落とさない |
