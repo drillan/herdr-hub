@@ -170,7 +170,15 @@ context 使用率が `handoff_at`（既定 0.8 = 80% 使用）に達したら交
 
 ## ファイル構成
 
+この repo からは 2 つの skill を配布する（`gh skill install drillan/herdr-hub <name>` で個別インストール可）:
+
+- **herdr-hub** — 上記の hub-spoke 運用 runbook
+- **herdr-session** — `session stop` → `attach` でリセットされる agent 名を capture/restore するユーティリティ（`skills/herdr-session/`）
+
 ```
+skills/herdr-session/                      # agent 名の capture/restore（HERDR_ENV=1 の pane 内で実行）
+  SKILL.md                                # 使い方・照合ルール・制限
+  scripts/herdr-session                   # capture / restore / status（bash+jq）
 skills/herdr-hub/                         # skill 本体（この dir が ~/.claude/skills/herdr-hub へ置かれる）
   SKILL.md                                # skill 入口（骨子 + references 索引）
   references/

@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+# herdr-session — capture/restore agent names of the current Herdr session.
+#
+#   herdr-session capture [--file PATH]
+#   herdr-session restore [--file PATH] [--timeout SECONDS] [--dry-run]
+#   herdr-session status  [--file PATH]
+#
+# Must run inside a Herdr-managed pane (HERDR_ENV=1).
+set -euo pipefail
+
+prog=herdr-session
+capture_filename=agent-names.capture.json
+name_pattern='^[a-z][a-z0-9_-]{0,31}$'
+
+err() { printf '%s: %s\n' "$prog" "$*" >&2; }
+die() { err "$*"; exit 1; }
+
+usage() {
+  cat >&2 <<'EOF'
+usage:
+  herdr-session capture [--file PATH]
+  herdr-session restore [--file PATH] [--timeout SECONDS] [--dry-run]
+  herdr-session status  [--file PATH]
+
+Capture and restore Herdr agent names of the current session.
+Run inside a Herdr-managed pane (HERDR_ENV=1).
+EOF
+  exit "${1:-2}"
+}
+
+command -v herdr >/dev/null 2>&1 || die "herdr not found in PATH"
+command -v jq >/dev/null 2>&1 || die "jq not found in PATH"
+[[ "${HERDR_ENV:-}" == 1 ]] || die "not inside a Herdr-managed pane (HERDR_ENV != 1)"
+[[ -n "${HERDR_SOCKET_PATH:-}" ]] || die "HERDR_SOCKET_PATH is not set"
+
+session_dir() { dirname "$HERDR_SOCKET_PATH"; }
+capture_path() { printf '%s/%s' "$(session_dir)" "$capture_filename"; }
+
+# Live agents as a compact JSON array:
+#   [{name, pane_id, agent, cwd, session_value}]
+live_agents() {
+  local out
+  out=$(herdr agent list) || die "herdr agent list failed"
+  printf '%s' "$out" | jq -ce '[.result.agents[] | {
+    name: (.name // null),
+    pane_id, agent, cwd,
+    session_value: (.agent_session.value // null)
+  }]' || die "unexpected output from herdr agent list"
+}
+
+# Desired names from a capture file.
+capture_desired() {
+  jq -ce '[.agents[]? | select(.name != null) | {
+    name, agent: (.agent // null), cwd: (.cwd // null),
+    session_value: (.agent_session.value // null)
+  }] | unique' "$1" || die "invalid capture file: $1"
+}
+
+# Desired names recovered from on-disk session state.
+#
+# The intended state is "names as of the last session stop". Snapshot backups
+# are periodic, not per-save, so the best approximation of the pre-stop state
+# is the NEWEST snapshot created before the server started (socket mtime marks
+# server start). Current session.json is merged first so post-restart renames
+# win; the pre-start snapshot fills in names the restart dropped. Older
+# history is not merged — it would resurrect names of agents long gone.
+snapshot_desired() {
+  local dir boundary f pre_start=
+  dir=$(session_dir)
+  boundary=$(stat -c %Y "$HERDR_SOCKET_PATH" 2>/dev/null || echo 0)
+  while IFS= read -r f; do
+    if [[ -f $f && $(stat -c %Y "$f") -lt $boundary ]]; then
+      pre_start=$f   # first hit in newest-first order = newest pre-start
+      break
+    fi
+  done < <(ls -1t "$dir"/session-snapshots/*.json 2>/dev/null || true)
+
+  local files=("$dir/session.json")
+  if [[ -n $pre_start ]]; then
+    files+=("$pre_start")
+  fi
+
+  local ok=()
+  for f in "${files[@]}"; do
+    [[ -f $f ]] && jq -e . "$f" >/dev/null 2>&1 && ok+=("$f")
+  done
+  ((${#ok[@]})) || { echo '[]'; return; }
+  local out
+  out=$(jq -cn '
+    [inputs | .. | objects | select(.agent_name? != null) | {
+        name: .agent_name,
+        agent: (.managed_agent_kind // .agent_session.agent // null),
+        cwd: (.cwd // null),
+        session_value: (.agent_session.value // null),
+        key: (.agent_session.value // .agent_name)
+      }] | group_by(.key) | map(.[0] | del(.key)) | group_by(.name) | map(.[0])
+  ' "${ok[@]}" 2>/dev/null) || die "failed to parse session state"
+  err "source: ${ok[*]}"
+  printf '%s' "$out"
+}
+
+# Prints desired entries. Source is a capture file when available, otherwise
+# the persisted snapshots. An explicitly given --file must exist.
+desired_agents() {
+  local file=${1:-}
+  if [[ -n $file ]]; then
+    [[ -f $file ]] || die "capture file not found: $file"
+    err "source: $file"
+    capture_desired "$file"
+    return
+  fi
+  file=$(capture_path)
+  if [[ -f $file ]]; then
+    err "source: $file"
+    capture_desired "$file"
+  else
+    snapshot_desired
+  fi
+}
+
+# join desired names with live agents:
+#   session_value present -> exact session match only
+#   session_value absent  -> unique unnamed live agent with same kind+cwd
+# states: ok | rename | conflict | pending
+build_plan() {
+  jq -cn --argjson live "$1" --argjson desired "$2" '
+    [$desired[] as $d |
+      (if $d.session_value != null
+         then ($live | map(select(.session_value == $d.session_value)) | .[0] // null)
+         else ($live | map(select(.name == null and .cwd == $d.cwd
+                 and ($d.agent == null or .agent == $d.agent)))
+               | if length == 1 then .[0] else null end)
+       end) as $l |
+      {
+        name: $d.name,
+        pane_id: ($l.pane_id // null),
+        live_name: ($l.name // null),
+        state: (if $l == null then "pending"
+                elif $l.name == $d.name then "ok"
+                elif $l.name == null then "rename"
+                else "conflict" end)
+      }]'
+}
+
+print_plan() {
+  jq -r '.[] | "[" + .state + "] " + .name
+    + (if .pane_id != null then "  pane=" + .pane_id else "" end)
+    + (if .live_name != null and .live_name != .name
+         then "  live_name=" + .live_name else "" end)' <<<"$1"
+}
+
+cmd_capture() {
+  local file=
+  while (($#)); do
+    case $1 in
+      --file) file=${2:?"--file requires PATH"}; shift 2 ;;
+      *) usage ;;
+    esac
+  done
+  [[ -n $file ]] || file=$(capture_path)
+  local tmp
+  tmp=$(mktemp "$(dirname "$file")/.agent-names.XXXXXX") || die "cannot create temp file next to $file"
+  herdr agent list | jq '{
+    version: 1,
+    captured_at: (now | todate),
+    session: (env.HERDR_SESSION // null),
+    agents: [.result.agents[] | select(.name != null) | {
+      name, pane_id, workspace_id, tab_id, agent, cwd, agent_session
+    }]
+  }' >"$tmp" || { rm -f "$tmp"; die "capture failed"; }
+  mv "$tmp" "$file"
+  printf 'captured %s agent name(s) -> %s\n' "$(jq '.agents | length' "$file")" "$file"
+}
+
+cmd_restore() {
+  local file= timeout=60 dry_run=0
+  while (($#)); do
+    case $1 in
+      --file) file=${2:?"--file requires PATH"}; shift 2 ;;
+      --timeout) timeout=${2:?"--timeout requires SECONDS"}; shift 2 ;;
+      --dry-run) dry_run=1; shift ;;
+      *) usage ;;
+    esac
+  done
+  [[ $timeout =~ ^[0-9]+$ ]] || die "--timeout must be a non-negative integer"
+
+  local desired
+  desired=$(desired_agents "$file")
+  [[ $desired != '[]' ]] || { echo "nothing to restore (no named agents found)"; return 0; }
+
+  if ((dry_run)); then
+    print_plan "$(build_plan "$(live_agents)" "$desired")"
+    return 0
+  fi
+
+  local deadline=$((SECONDS + timeout))
+  declare -A failed=()
+  local live plan
+  while :; do
+    live=$(live_agents)
+    plan=$(build_plan "$live" "$desired")
+    local waiting=0
+    while IFS= read -r row; do
+      local state name pane
+      state=$(jq -r .state <<<"$row")
+      name=$(jq -r .name <<<"$row")
+      case $state in
+        rename)
+          pane=$(jq -r .pane_id <<<"$row")
+          [[ $name =~ $name_pattern ]] || { err "invalid agent name skipped: $name"; failed[$name]=1; continue; }
+          [[ -z ${failed[$name]:-} ]] || continue
+          if herdr agent rename "$pane" "$name" >/dev/null 2>&1; then
+            printf 'renamed: %s -> %s\n' "$pane" "$name"
+          else
+            err "rename failed: $pane -> $name"
+            failed[$name]=1
+          fi
+          ;;
+        pending) waiting=1 ;;
+      esac
+    done < <(jq -c '.[]' <<<"$plan")
+    ((waiting == 0)) && break
+    if ((SECONDS >= deadline)); then
+      err "timed out waiting for agent detection (${timeout}s)"
+      break
+    fi
+    sleep 2
+  done
+
+  # final report
+  local failed_json='[]'
+  ((${#failed[@]})) && failed_json=$(printf '%s\n' "${!failed[@]}" | jq -Rn '[inputs]')
+  plan=$(build_plan "$(live_agents)" "$desired" \
+    | jq --argjson failed "$failed_json" 'map(
+        if (.name as $n | $failed | index($n)) != null then .state = "failed"
+        elif .state == "pending" then .state = "unmatched"
+        else . end)')
+  print_plan "$plan" >&2
+  local unresolved
+  unresolved=$(jq '[.[] | select(.state != "ok")] | length' <<<"$plan")
+  ((unresolved == 0)) || return 1
+}
+
+cmd_status() {
+  local file=
+  while (($#)); do
+    case $1 in
+      --file) file=${2:?"--file requires PATH"}; shift 2 ;;
+      *) usage ;;
+    esac
+  done
+  local desired
+  desired=$(desired_agents "$file")
+  if [[ $desired == '[]' ]]; then
+    echo "no stored agent names"
+    return 0
+  fi
+  print_plan "$(build_plan "$(live_agents)" "$desired")"
+}
+
+main() {
+  local sub=${1:-}
+  [[ $sub == -h || $sub == --help ]] && usage 0
+  (($#)) && shift
+  case $sub in
+    capture) cmd_capture "$@" ;;
+    restore) cmd_restore "$@" ;;
+    status) cmd_status "$@" ;;
+    *) usage ;;
+  esac
+}
+
+main "$@"

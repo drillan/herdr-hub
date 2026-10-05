@@ -11,6 +11,7 @@
 | timeout/stalled を未配送と誤読して再送 | `agent_prompt_stalled` / `timeout` | **配送は済んでいる可能性が高い。** 再送前に `agent read` で届いたか確認する |
 | pane から応答が読めない | `pane read --lines` を増やしても出ない | alternate screen 上で描画されている。host scrollback に残らない。受け手に「応答をファイルに書いてパスだけ返せ」と依頼する |
 | agent exit で名が消える | `agent list` に名が無い | 名は live agent に紐づく。交代・再起動時は `agent start` で付け直す（[context-and-handover.md](context-and-handover.md)） |
+| `session stop`→`attach` で全 agent 名が消える | 復元された agent が無名で検出される（`agent list` の name が null） | agent 名は session.json に残るが live registry へは再適用されない。`herdr-session restore`（herdr-session skill）で agent_session UUID 照合により付け直す。stop 前に `herdr-session capture` を取ると確実 |
 | `pane move` 後に旧 pane ID で宛先不明 | 旧 ID が解決しない | `.result.move_result.pane.pane_id` か live agent 名で継続。旧 ID は移動プロセスの caller context でしか解決しない |
 | `agent wait --until idle` が作業中に返る | prompt 入力中・typing 中の隙間で `idle` を観測して settled と判定 | 回収には status だけでなく pane 文面の poll を併用する |
 | Devin が permission prompt で停止 | `blocked`・画面に承認 UI（`git grep` 等の実行許可） | 人間に「always allow in repo」を選んでもらう。hub は UI を回答しない |
