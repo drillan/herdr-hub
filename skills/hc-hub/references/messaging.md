@@ -43,7 +43,7 @@
 
 1. `hc wait --children any` を走らせる
 2. 返るたびに、**`hc ls --label hc-hub.lane=<L>` と `hc get` で全 worker の状態を取り直す。** 戻り値だけで子の完了を数えない（通知は取りこぼされうる。完了済みの子は報告されない）。返ったあとは `hc read` で画面を読み、宣言だけで終わったか完了かを見分ける
-3. 戻り値が子 0 件、または取り直した結果にレーンの子が残っていなければ、ループを抜ける
+3. 子が 0 件になったら、ループを抜ける。ここで「子」は、`hc-hub.lane=<L>` を持ち `hc-hub.role` が hub でないターミナル（worker と常駐 agent。hub 自身は含めない）で、`state` が live のもの。idle のまま live の worker は子に数えるので、止める（`hc kill` → `hc rm`）までループは続く
 
 **合図は「画面を読め」の合図であって、完了の証拠ではない。** 状態が `idle`・`done` であることを確かめてから `hc read` で回収する（`working` なら背景で待つ）。
 
@@ -123,4 +123,4 @@ agent が exit しても、ターミナルの記録（と、`tab` 配置では t
 
 ### 人が tab を閉じた worker
 
-`tab` 配置の worker は、人が tab を閉じると終了する（core の keep が有効になるため。spec）。worker が終了すると pane が閉じ、最後の pane なら tab も消える。hub は、人が閉じた worker を「終了した worker」として扱う。待機から返ったとき、または取り直した状態で `state: finished` のターミナルを見つけたら、`hc rm` で記録を消し（`kill` は要らない）、台帳に stop を記録する。結果を受け取っていなければ、受け取っていない事実を人に伝える。
+`tab` 配置の worker は、人が tab を閉じると終了する（core の keep が有効になるため。spec）。worker が終了すると pane が閉じ、最後の pane なら tab も消える。hub は、人が閉じた worker を「終了した worker」として扱う。待機から返ったとき、または取り直した状態で `state: finished` のターミナルを見つけたら（人が tab を閉じた worker が `finished` になるのは、spec 4.10 と `hc kill` の実測（tab が消え、ターミナルが `finished` で残る）からの推定で、人が閉じた場合を直接測ったものではない）、`hc rm` で記録を消し（`kill` は要らない）、台帳に stop を記録する。結果を受け取っていなければ、受け取っていない事実を人に伝える。
