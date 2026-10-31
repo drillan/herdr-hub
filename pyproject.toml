@@ -12,7 +12,8 @@ dev = ["pytest", "pyyaml", "types-PyYAML", "ruff", "mypy"]
 pythonpath = ["skills/hc-hub/scripts", "tests"]
 
 [tool.ruff]
-extend-exclude = [".worktrees", ".superpowers"]
+# Markdown 内のコード片は計画・skill 文書の一部で、整形すると文書の差分になるため対象にしない
+extend-exclude = [".worktrees", ".superpowers", "*.md"]
 
 [tool.ruff.lint]
 select = ["ALL"]
