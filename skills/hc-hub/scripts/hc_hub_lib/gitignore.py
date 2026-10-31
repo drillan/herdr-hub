@@ -58,7 +58,7 @@ def _ignored_by_tracked_gitignore(top: Path) -> bool:
 
 
 def _read_gitignore(top: Path) -> str:
-    # 追記できる状態かを確かめつつ中身を返す。書き込みはしない
+    # 追記先として壊れていないかを確かめつつ中身を返す。書き込みはしない
     path = top / GITIGNORE
     if path.is_symlink() and not path.exists():
         msg = f"{path} は壊れたシンボリックリンク。直してから実行する"
@@ -67,18 +67,24 @@ def _read_gitignore(top: Path) -> str:
         msg = f"{path} がディレクトリ。直してから実行する"
         raise GitignoreError(msg)
     if not path.exists():
-        if not os.access(top, os.W_OK):
-            msg = f"{top} に {GITIGNORE} を作れない（書き込み権限が無い）"
-            raise GitignoreError(msg)
         return ""
-    if not os.access(path, os.W_OK):
-        msg = f"{path} に追記できない（書き込み権限が無い）"
-        raise GitignoreError(msg)
     try:
         return path.read_bytes().decode("utf-8")
     except (OSError, UnicodeDecodeError) as e:
         msg = f"{path} を読めない: {e}"
         raise GitignoreError(msg) from e
+
+
+def _require_appendable(top: Path) -> None:
+    path = top / GITIGNORE
+    if not path.exists():
+        if not os.access(top, os.W_OK):
+            msg = f"{top} に {GITIGNORE} を作れない（書き込み権限が無い）"
+            raise GitignoreError(msg)
+        return
+    if not os.access(path, os.W_OK):
+        msg = f"{path} に追記できない（書き込み権限が無い）"
+        raise GitignoreError(msg)
 
 
 def _append_ignore_line(top: Path) -> None:
@@ -114,7 +120,10 @@ def plan_ledger_ignore(top: Path) -> bool:
     # 追記が要るかを返す。追記できない状態なら何も書かずに例外を送出する
     existing = _read_gitignore(top)
     has_line = IGNORE_LINE in existing.splitlines()
-    return not (_is_ignored(top) and (has_line or _ignored_by_tracked_gitignore(top)))
+    if _is_ignored(top) and (has_line or _ignored_by_tracked_gitignore(top)):
+        return False
+    _require_appendable(top)
+    return True
 
 
 def append_ledger_ignore(top: Path) -> None:

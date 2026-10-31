@@ -197,3 +197,11 @@ def test_roster_not_ignored_passes(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path / "repo")
 
     require_roster_not_ignored(repo, ".hc-hub.yml")
+
+
+def test_plan_accepts_readonly_gitignore_that_already_ignores(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path / "repo")
+    _track_gitignore(repo, "/.hc-hub/\n")
+    (repo / ".gitignore").chmod(0o444)
+
+    assert plan_ledger_ignore(repo) is False
