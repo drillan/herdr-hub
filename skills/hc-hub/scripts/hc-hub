@@ -6,12 +6,22 @@
 import argparse
 import dataclasses
 import json
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from hc_hub_lib.guard import GuardError, check, check_placement_tab
+from hc_hub_lib.hc_client import (
+    HcError,
+    get_labels,
+    get_terminal,
+    hc_json,
+    run_hc,
+    terminal_id,
+)
 from hc_hub_lib.ledger import (
     EVENTS,
     LedgerError,
@@ -19,6 +29,7 @@ from hc_hub_lib.ledger import (
     append_event,
     read_events,
 )
+from hc_hub_lib.preflight import PreflightError, run_preflight
 from hc_hub_lib.roster import (
     Resolved,
     RosterError,
@@ -28,6 +39,7 @@ from hc_hub_lib.roster import (
     resolve_resident,
     resolve_worker,
 )
+from hc_hub_lib.spawn import SpawnError, spawn_argv, start_hub
 
 DEFAULT_ROSTER = ".hc-hub.yml"
 ROSTER_ERROR_EXIT = 2
@@ -38,6 +50,44 @@ def _resolved_json(r: Resolved) -> str:
     data["role_def"] = str(r.role_def) if r.role_def is not None else None
     data["rules"] = [str(p) for p in r.rules]
     return json.dumps(data, ensure_ascii=False)
+
+
+def _add_roster(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--roster", type=Path, default=Path(DEFAULT_ROSTER))
+
+
+def _add_hc(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--hc", default="hc")
+
+
+def add_hc_subcommands(
+    sub: "argparse._SubParsersAction[argparse.ArgumentParser]",
+) -> None:
+    guard = sub.add_parser("guard", help="操作前にレーンの隔離を検査する")
+    _add_hc(guard)
+    guard.add_argument("--op", required=True)
+    guard.add_argument("target")
+
+    space = sub.add_parser("space", help="自分の herdr.space を出す")
+    _add_hc(space)
+
+    sub.add_parser("preflight", help="hc の前提を検査する")
+
+    start = sub.add_parser("start", help="自分を hub としてラベル付けする")
+    _add_roster(start)
+    _add_hc(start)
+    start.add_argument("--lane", required=True)
+
+    spawn = sub.add_parser("spawn-argv", help="worker の hc run 引数を JSON で出す")
+    _add_roster(spawn)
+    _add_hc(spawn)
+    spawn.add_argument("--lane", required=True)
+    who = spawn.add_mutually_exclusive_group(required=True)
+    who.add_argument("--preset")
+    who.add_argument("--agent")
+    spawn.add_argument("--name", required=True)
+    spawn.add_argument("--task", required=True)
+    spawn.add_argument("--brief")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -77,6 +127,8 @@ def build_parser() -> argparse.ArgumentParser:
     listing = ledger_sub.add_parser("list", help="台帳を JSON 配列で出す")
     add_roster(listing)
     listing.add_argument("--lane")
+
+    add_hc_subcommands(sub)
     return parser
 
 
@@ -122,9 +174,68 @@ def run_ledger(args: argparse.Namespace) -> None:
     )
 
 
+def run_start(args: argparse.Namespace, me: str) -> None:
+    roster = load_roster(args.roster)
+    listing = hc_json(
+        args.hc,
+        [
+            "ls",
+            "--label",
+            f"hc-hub.lane={args.lane}",
+            "--label",
+            "hc-hub.role=hub",
+            "--json",
+        ],
+    )
+    rows = listing.get("terminals")
+    if not isinstance(rows, list):
+        msg = "hc ls --json に terminals の配列が無い"
+        raise HcError(msg)
+    hubs = [get_terminal(args.hc, row["address"]) for row in rows]
+    run_hc(args.hc, ["label", me, *start_hub(roster, args.lane, me, hubs)])
+
+
+def run_spawn_argv(args: argparse.Namespace, me: str) -> None:
+    roster = load_roster(args.roster)
+    if args.preset is not None:
+        resolved = resolve_worker(roster, args.lane, args.preset)
+        role = None
+    else:
+        resolved = resolve_resident(roster, args.lane, args.agent)
+        role = args.agent
+    argv = spawn_argv(
+        resolved,
+        args.lane,
+        args.name,
+        args.task,
+        get_labels(args.hc, me),
+        args.brief,
+        role=role,
+    )
+    print(json.dumps(argv, ensure_ascii=False))
+
+
+def run_hc_commands(args: argparse.Namespace) -> None:
+    if args.command == "preflight":
+        run_preflight(os.environ)
+        return
+    me = terminal_id(os.environ)
+    if args.command == "guard":
+        check(args.op, get_labels(args.hc, me), get_labels(args.hc, args.target))
+    elif args.command == "space":
+        print(check_placement_tab(get_labels(args.hc, me)))
+    elif args.command == "start":
+        run_start(args, me)
+    else:
+        run_spawn_argv(args, me)
+
+
 def run(args: argparse.Namespace) -> None:
     if args.command == "ledger":
         run_ledger(args)
+        return
+    if args.command in ("guard", "space", "preflight", "start", "spawn-argv"):
+        run_hc_commands(args)
         return
     roster = load_roster(args.roster)
     if args.command == "validate":
@@ -145,7 +256,14 @@ def main() -> int:
     args = build_parser().parse_args()
     try:
         run(args)
-    except (RosterError, LedgerError) as e:
+    except (
+        RosterError,
+        LedgerError,
+        GuardError,
+        PreflightError,
+        SpawnError,
+        HcError,
+    ) as e:
         print(f"hc-hub: {e}", file=sys.stderr)
         return ROSTER_ERROR_EXIT
     return 0
