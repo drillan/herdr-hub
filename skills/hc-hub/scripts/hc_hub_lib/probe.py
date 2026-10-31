@@ -1,12 +1,14 @@
 import json
 import os
+import pwd
 import re
 import secrets
 import shlex
-from collections.abc import Sequence
+import subprocess
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from hc_hub_lib.hc_client import HcError, run_hc
+from hc_hub_lib.hc_client import HC_TIMEOUT_SECONDS, HcError, run_hc
 
 # HC_TIMEOUT_SECONDS（30 秒）より短くする。Python 側の打ち切りを先に来させない
 PROBE_WAIT_SECONDS = 20
@@ -96,14 +98,7 @@ def _check_ended(hc: str, address: str) -> None:
 
 
 def probe_core(hc: str, executables: Sequence[str], cwd: Path) -> dict[str, bool]:
-    names = list(executables)
-    for n in names:
-        if not _NAME_RE.fullmatch(n):
-            msg = f"実行ファイル名として扱えない: {n!r}"
-            raise ProbeError(msg)
-    if len(set(names)) != len(names):
-        msg = f"実行ファイル名が重複している: {names}"
-        raise ProbeError(msg)
+    names = _check_names(executables)
     nonce = secrets.token_hex(8)
     started = _hc_object(
         hc,
@@ -151,3 +146,100 @@ def probe_core(hc: str, executables: Sequence[str], cwd: Path) -> dict[str, bool
         msg = f"probe の端末 {address} を hc rm で消せなかった: {rm_error}"
         raise ProbeError(msg) from rm_error
     return result
+
+
+SUPPORTED_SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh"})
+
+
+def _check_names(executables: Sequence[str]) -> list[str]:
+    names = list(executables)
+    for n in names:
+        if not _NAME_RE.fullmatch(n):
+            msg = f"実行ファイル名として扱えない: {n!r}"
+            raise ProbeError(msg)
+    if len(set(names)) != len(names):
+        msg = f"実行ファイル名が重複している: {names}"
+        raise ProbeError(msg)
+    return names
+
+
+def login_shell() -> Path:
+    # SHELL 環境変数は core から受け継いだ値で、普段のシェルとは限らない
+    shell = Path(pwd.getpwuid(os.getuid()).pw_shell)
+    if shell.name not in SUPPORTED_SHELLS:
+        msg = (
+            f"ログインシェル {shell} は未対応"
+            f"（対応: {', '.join(sorted(SUPPORTED_SHELLS))}）"
+        )
+        raise ProbeError(msg)
+    return shell
+
+
+def _build_shell_script(nonce: str, names: Sequence[str]) -> str:
+    lines = [
+        f"printf '%s %s %s\\n' {nonce} {n} "
+        f'"$(command -v {shlex.quote(n)} 2>/dev/null)"'
+        for n in names
+    ]
+    lines.append(f"printf '%s END\\n' {nonce}")
+    lines.append("exit 0")
+    return "\n".join(lines) + "\n"
+
+
+def _parse_shell(output: str, nonce: str, names: Sequence[str]) -> dict[str, str]:
+    prefix = f"{nonce} "
+    found: dict[str, str] = {}
+    ends = 0
+    for raw in output.splitlines():
+        if not raw.startswith(prefix):
+            continue
+        body = raw[len(prefix) :]
+        if body == "END":
+            ends += 1
+            continue
+        parts = body.split(" ", 1)
+        name = parts[0]
+        if name not in names:
+            msg = f"対話シェルの出力に未知の名前がある: {name!r}"
+            raise ProbeError(msg)
+        if name in found:
+            msg = f"対話シェルの出力に名前 {name!r} が重複している"
+            raise ProbeError(msg)
+        found[name] = parts[1].strip() if len(parts) > 1 else ""
+    missing = [n for n in names if n not in found]
+    if missing:
+        msg = f"対話シェルの出力に行が無い名前がある: {missing}"
+        raise ProbeError(msg)
+    if ends != 1:
+        msg = f"対話シェルの出力の END の行が {ends} 回ある（1 回のはず）"
+        raise ProbeError(msg)
+    return found
+
+
+def probe_shell(
+    shell: Path,
+    executables: Sequence[str],
+    env: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    names = _check_names(executables)
+    nonce = secrets.token_hex(8)
+    script = _build_shell_script(nonce, names)
+    try:
+        proc = subprocess.run(  # noqa: S603
+            [str(shell), "-l", "-i", "-c", script],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=HC_TIMEOUT_SECONDS,
+            env=None if env is None else dict(env),
+        )
+    except subprocess.TimeoutExpired as e:
+        msg = f"対話シェル {shell} が {HC_TIMEOUT_SECONDS:g} 秒以内に終わらない"
+        raise ProbeError(msg) from e
+    except OSError as e:
+        msg = f"対話シェル {shell} を実行できない: {e}"
+        raise ProbeError(msg) from e
+    if proc.returncode != 0:
+        msg = f"対話シェル {shell} が終了コード {proc.returncode} で終わった"
+        raise ProbeError(msg)
+    return _parse_shell(proc.stdout, nonce, names)

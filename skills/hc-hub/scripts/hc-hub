@@ -13,6 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from hc_hub_lib.catalog import KNOWN_AGENTS, CatalogError
+from hc_hub_lib.detect import detect_report
 from hc_hub_lib.guard import GuardError, check, check_placement_tab
 from hc_hub_lib.hc_client import (
     HcError,
@@ -30,6 +32,7 @@ from hc_hub_lib.ledger import (
     read_events,
 )
 from hc_hub_lib.preflight import PreflightError, run_preflight
+from hc_hub_lib.probe import ProbeError, login_shell, probe_core, probe_shell
 from hc_hub_lib.roster import (
     Resolved,
     Roster,
@@ -41,6 +44,11 @@ from hc_hub_lib.roster import (
     resolve_worker,
 )
 from hc_hub_lib.spawn import SpawnError, require_lane_hub, spawn_argv, start_hub
+from hc_hub_lib.workspace import (
+    WorkspaceError,
+    require_main_checkout_top,
+    require_not_worker,
+)
 
 DEFAULT_ROSTER = ".hc-hub.yml"
 ROSTER_ERROR_EXIT = 2
@@ -73,6 +81,9 @@ def add_hc_subcommands(
     _add_hc(space)
 
     sub.add_parser("preflight", help="hc の前提を検査する")
+
+    detect = sub.add_parser("detect", help="エージェントが使えるかを判定する")
+    _add_hc(detect)
 
     start = sub.add_parser("start", help="自分を hub としてラベル付けする")
     _add_roster(start)
@@ -251,6 +262,16 @@ def run_spawn_argv(args: argparse.Namespace, me: str) -> None:
     print(json.dumps(argv, ensure_ascii=False))
 
 
+def run_detect(args: argparse.Namespace, me: str) -> None:
+    top = require_main_checkout_top(Path.cwd())
+    require_not_worker(get_labels(args.hc, me))
+    executables = [a.executable for a in KNOWN_AGENTS]
+    core = probe_core(args.hc, executables, top)
+    shell_path = login_shell()
+    shell = probe_shell(shell_path, executables)
+    print(json.dumps(detect_report(core, shell, shell_path), ensure_ascii=False))
+
+
 def run_hc_commands(args: argparse.Namespace) -> None:
     if args.command == "preflight":
         run_preflight(os.environ)
@@ -260,6 +281,8 @@ def run_hc_commands(args: argparse.Namespace) -> None:
         check(args.op, get_labels(args.hc, me), get_labels(args.hc, args.target))
     elif args.command == "space":
         print(check_placement_tab(get_labels(args.hc, me)))
+    elif args.command == "detect":
+        run_detect(args, me)
     elif args.command == "start":
         run_start(args, me)
     else:
@@ -270,7 +293,7 @@ def run(args: argparse.Namespace) -> None:
     if args.command == "ledger":
         run_ledger(args)
         return
-    if args.command in ("guard", "space", "preflight", "start", "spawn-argv"):
+    if args.command in ("guard", "space", "preflight", "start", "spawn-argv", "detect"):
         run_hc_commands(args)
         return
     roster = load_roster(args.roster)
@@ -299,6 +322,9 @@ def main() -> int:
         PreflightError,
         SpawnError,
         HcError,
+        ProbeError,
+        WorkspaceError,
+        CatalogError,
     ) as e:
         print(f"hc-hub: {e}", file=sys.stderr)
         return ROSTER_ERROR_EXIT

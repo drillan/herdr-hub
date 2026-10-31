@@ -1,10 +1,11 @@
+import pwd
 import stat
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fake_hc import make_fake_hc
-from hc_hub_lib.probe import ProbeError, probe_core
+from hc_hub_lib.probe import ProbeError, login_shell, probe_core, probe_shell
 
 
 def _fake(tmp_path: Path, **kwargs: Any) -> str:  # noqa: ANN401
@@ -78,3 +79,59 @@ def test_probe_core_removes_on_unexpected_exception(
     with pytest.raises(RuntimeError, match="boom"):
         probe_core(fake, ["claude"], tmp_path)
     assert "t90" in (tmp_path / "rm.log").read_text()
+
+
+SH = Path("/bin/sh")
+
+
+def _home(tmp_path: Path) -> dict[str, str]:
+    (tmp_path / "my bin").mkdir(exist_ok=True)
+    exe = tmp_path / "my bin" / "claude"
+    exe.write_text("")
+    exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
+    return {"HOME": str(tmp_path), "PATH": f"{tmp_path}/my bin:/usr/bin:/bin"}
+
+
+def test_probe_shell_reads_paths_with_spaces(tmp_path: Path) -> None:
+    env = _home(tmp_path)
+    result = probe_shell(SH, ["claude", "pi"], env)
+    assert result == {"claude": f"{tmp_path}/my bin/claude", "pi": ""}
+
+
+def test_probe_shell_ignores_noise_from_profile(tmp_path: Path) -> None:
+    env = _home(tmp_path)
+    (tmp_path / ".profile").write_text('echo hello; echo "x claude /fake"\n')
+    result = probe_shell(SH, ["claude", "pi"], env)
+    assert result == {"claude": f"{tmp_path}/my bin/claude", "pi": ""}
+
+
+def test_probe_shell_nonzero_is_error(tmp_path: Path) -> None:
+    env = _home(tmp_path)
+    (tmp_path / ".profile").write_text("exit 5\n")
+    with pytest.raises(ProbeError):
+        probe_shell(SH, ["claude"], env)
+
+
+def test_probe_shell_rejects_bad_names(tmp_path: Path) -> None:
+    with pytest.raises(ProbeError):
+        probe_shell(SH, ["a b"], _home(tmp_path))
+    with pytest.raises(ProbeError):
+        probe_shell(SH, ["pi", "pi"], _home(tmp_path))
+
+
+def test_probe_shell_missing_shell_is_error(tmp_path: Path) -> None:
+    with pytest.raises(ProbeError):
+        probe_shell(tmp_path / "no-such-shell", ["pi"], _home(tmp_path))
+
+
+def test_login_shell_rejects_fish(monkeypatch: pytest.MonkeyPatch) -> None:
+    entry = pwd.struct_passwd(("u", "x", 1, 1, "", "/home/u", "/usr/bin/fish"))
+    monkeypatch.setattr(pwd, "getpwuid", lambda _uid: entry)
+    with pytest.raises(ProbeError, match="fish"):
+        login_shell()
+
+
+def test_login_shell_accepts_bash(monkeypatch: pytest.MonkeyPatch) -> None:
+    entry = pwd.struct_passwd(("u", "x", 1, 1, "", "/home/u", "/bin/bash"))
+    monkeypatch.setattr(pwd, "getpwuid", lambda _uid: entry)
+    assert login_shell() == Path("/bin/bash")

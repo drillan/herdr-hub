@@ -94,7 +94,7 @@ def make_fake_hc(  # noqa: PLR0913
 
 
 def run_cli(
-    *args: str, env_extra: dict[str, str] | None = None
+    *args: str, env_extra: dict[str, str] | None = None, cwd: Path | None = None
 ) -> subprocess.CompletedProcess[str]:
     env = {k: v for k, v in os.environ.items() if k != "HC_TERMINAL_ID"}
     env.update(env_extra or {})
@@ -104,4 +104,5 @@ def run_cli(
         text=True,
         check=False,
         env=env,
+        cwd=cwd,
     )
