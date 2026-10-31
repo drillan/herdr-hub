@@ -182,19 +182,56 @@ def _validate_stage(
     return mapping
 
 
-def load_roster(path: Path) -> Roster:
-    path = path.resolve()
+def _read_yaml(path: Path) -> object:
     try:
         text = path.read_text()
     except OSError as e:
         msg = f"roster を読めない: {path}（{e.strerror}）"
         raise RosterError(msg) from e
+    except UnicodeDecodeError as e:
+        msg = f"roster が UTF-8 ではない: {path}（{e}）"
+        raise RosterError(msg) from e
     try:
-        raw = yaml.safe_load(text)
+        return yaml.safe_load(text)
     except yaml.YAMLError as e:
         msg = f"roster の YAML が壊れている: {path}（{e}）"
         raise RosterError(msg) from e
-    top = _mapping(raw, "roster")
+
+
+def _validate_lane(
+    lane_name: str,
+    lane: object,
+    presets: Mapping[str, Any],
+    base: Path,
+    seen_residents: dict[str, str],
+) -> None:
+    _check_name(lane_name, "lanes")
+    where = f"lanes.{lane_name}"
+    lane_map = _validate_stage(lane, "lane", base, where)
+    if "hub" in lane_map:
+        _validate_stage(lane_map["hub"], "lane_hub", base, f"{where}.hub")
+    agents = _mapping(lane_map.get("agents", {}), f"{where}.agents")
+    for agent_name, agent in agents.items():
+        agent_where = f"{where}.agents.{agent_name}"
+        _check_name(agent_name, f"{where}.agents")
+        if agent_name in seen_residents:
+            msg = (
+                f"{agent_where}: 常駐 agent の名前がレーン "
+                f"{seen_residents[agent_name]} と重複"
+            )
+            raise RosterError(msg)
+        seen_residents[agent_name] = lane_name
+        agent_map = _validate_stage(agent, "resident", base, agent_where)
+        if "preset" in agent_map:
+            preset = agent_map["preset"]
+            if not isinstance(preset, str) or preset not in presets:
+                msg = f"{agent_where}: preset は定義済みの preset 名（{preset!r}）"
+                raise RosterError(msg)
+
+
+def load_roster(path: Path) -> Roster:
+    path = path.resolve()
+    top = _mapping(_read_yaml(path), "roster")
     base = path.parent
     _check_keys(top, "top", "roster")
     if "ledger" not in top or not isinstance(top["ledger"], str) or not top["ledger"]:
@@ -202,33 +239,13 @@ def load_roster(path: Path) -> Roster:
         raise RosterError(msg)
     presets = _mapping(top.get("presets", {}), "presets")
     for name, preset in presets.items():
+        _check_name(name, "presets")
         _validate_stage(preset, "preset", base, f"presets.{name}")
     _validate_stage(top.get("defaults", {}), "defaults", base, "defaults")
     lanes = _mapping(top.get("lanes", {}), "lanes")
     seen_residents: dict[str, str] = {}
     for lane_name, lane in lanes.items():
-        _check_name(lane_name, "lanes")
-        where = f"lanes.{lane_name}"
-        lane_map = _validate_stage(lane, "lane", base, where)
-        if "hub" in lane_map:
-            _validate_stage(lane_map["hub"], "lane_hub", base, f"{where}.hub")
-        agents = _mapping(lane_map.get("agents", {}), f"{where}.agents")
-        for agent_name, agent in agents.items():
-            _check_name(agent_name, f"{where}.agents")
-            if agent_name in seen_residents:
-                msg = (
-                    f"{where}.agents.{agent_name}: 常駐 agent の名前が"
-                    f"レーン {seen_residents[agent_name]} と重複"
-                )
-                raise RosterError(msg)
-            seen_residents[agent_name] = lane_name
-            agent_map = _validate_stage(
-                agent, "resident", base, f"{where}.agents.{agent_name}"
-            )
-            preset = agent_map.get("preset")
-            if preset is not None and preset not in presets:
-                msg = f"{where}.agents.{agent_name}: 未定義の preset {preset!r}"
-                raise RosterError(msg)
+        _validate_lane(lane_name, lane, presets, base, seen_residents)
     roster = Roster(
         path=path,
         ledger=base / top["ledger"],
@@ -275,6 +292,9 @@ def _merge(
         msg = f"{where}: approval がどの段にも書かれていない（既定値は持たない）"
         raise RosterError(msg)
     command = merged.get("command")
+    if command is not None and "template" in merged:
+        msg = f"{where}: 段をまたいで command と template の両方が解決された"
+        raise RosterError(msg)
     role_def = merged.get("role_def")
     return Resolved(
         role=merged.get("role"),
@@ -339,13 +359,14 @@ def resolve_resident(roster: Roster, lane: str, name: str) -> Resolved:
         msg = f"レーン {lane} に常駐 agent {name!r} は無い"
         raise RosterError(msg)
     agent = agents[name]
-    return _resolve_chain(
-        roster,
-        lane,
-        preset=agent.get("preset"),
-        where=f"lanes.{lane}.agents.{name}",
-        individual=agent,
+    where = f"lanes.{lane}.agents.{name}"
+    resolved = _resolve_chain(
+        roster, lane, preset=agent.get("preset"), where=where, individual=agent
     )
+    if resolved.command is None and resolved.template is None:
+        msg = f"{where}: command も template も解決できず、起動方法が無い"
+        raise RosterError(msg)
+    return resolved
 
 
 def resident_names(roster: Roster, lane: str) -> tuple[str, ...]:

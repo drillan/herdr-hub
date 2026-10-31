@@ -22,7 +22,7 @@ from hc_hub_lib.roster import (
 )
 
 DEFAULT_ROSTER = ".hc-hub.yml"
-USAGE_EXIT = 2
+ROSTER_ERROR_EXIT = 2
 
 
 def _resolved_json(r: Resolved) -> str:
@@ -79,7 +79,7 @@ def main() -> int:
         run(args)
     except RosterError as e:
         print(f"hc-hub: {e}", file=sys.stderr)
-        return USAGE_EXIT
+        return ROSTER_ERROR_EXIT
     return 0
 
 

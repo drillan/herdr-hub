@@ -418,3 +418,62 @@ def test_cli_unknown_lane_exits_2(tmp_path: Path) -> None:
     p = run_cli("residents", "--roster", str(roster), "--lane", "nope")
     assert p.returncode == 2
     assert "nope" in p.stderr
+
+
+def test_non_string_resident_preset_raises_roster_error(tmp_path: Path) -> None:
+    cfg = cfg_of()
+    cfg["lanes"]["be"]["agents"]["be-rev"]["preset"] = ["reviewer"]
+    with pytest.raises(RosterError, match="preset"):
+        load_roster(write(tmp_path, cfg))
+
+
+def test_null_resident_preset_raises(tmp_path: Path) -> None:
+    cfg = cfg_of()
+    cfg["lanes"]["be"]["agents"]["be-rev"]["preset"] = None
+    with pytest.raises(RosterError, match="preset"):
+        load_roster(write(tmp_path, cfg))
+
+
+@pytest.mark.parametrize(
+    ("preset_key", "preset_value", "agent_key", "agent_value"),
+    [
+        ("template", "advisor", "command", ["claude"]),
+        ("command", ["claude"], "template", "advisor"),
+    ],
+)
+def test_merged_command_and_template_conflict_raises(
+    tmp_path: Path,
+    preset_key: str,
+    preset_value: object,
+    agent_key: str,
+    agent_value: object,
+) -> None:
+    cfg = cfg_of()
+    cfg["presets"]["mix"] = {preset_key: preset_value}
+    cfg["lanes"]["be"]["agents"]["be-rev"] = {
+        "preset": "mix",
+        agent_key: agent_value,
+    }
+    with pytest.raises(RosterError, match="command"):
+        load_roster(write(tmp_path, cfg))
+
+
+def test_resident_without_launch_method_raises_at_load(tmp_path: Path) -> None:
+    cfg = cfg_of()
+    cfg["lanes"]["be"]["agents"]["x"] = {"approval": "auto"}
+    with pytest.raises(RosterError, match=r"lanes\.be\.agents\.x"):
+        load_roster(write(tmp_path, cfg))
+
+
+def test_non_utf8_roster_raises(tmp_path: Path) -> None:
+    path = tmp_path / ".hc-hub.yml"
+    path.write_bytes(b"\xff\xfe\x00bad")
+    with pytest.raises(RosterError, match=r"\.hc-hub\.yml"):
+        load_roster(path)
+
+
+def test_preset_name_follows_hc_rule(tmp_path: Path) -> None:
+    cfg = cfg_of()
+    cfg["presets"]["Bad Name"] = {"command": ["claude"]}
+    with pytest.raises(RosterError, match="Bad Name"):
+        load_roster(write(tmp_path, cfg))
