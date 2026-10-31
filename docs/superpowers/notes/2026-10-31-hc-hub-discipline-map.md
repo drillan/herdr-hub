@@ -2,7 +2,7 @@
 
 2026-10-31。spec 4.8 の対応表。書き直す 6 つの references（`context-and-handover`・`briefing`・`messaging`・`startup`・`failure-modes`・`roster`）と、それに付随する `transports` および `SKILL.md` の規律を、1 つも黙って落とさないための表。Task 5〜8 はこの表を正として書く。
 
-- `区分`: `そのまま`（規律の文をそのまま引き継ぐ）/ `変える`（規律は残し、Herdr 1 の仕組みに依存する部分だけを hc に差し替える）/ `捨てる`（Herdr 1 の仕組みそのもの。理由を書く）
+- `区分`: `そのまま`（規律の文をそのまま引き継ぐ）/ `変える`（規律は残し、旧来の `herdr` の仕組みに依存する部分だけを hc に差し替える）/ `捨てる`（旧来の `herdr` の仕組みそのもの。理由を書く）
 - `置き場所`: 書き直し後の `skills/hc-hub/` 内のファイル。共有の 3 references（`adjudication`・`escalation`・`worktrees`）には置かない（複製と同一性の検査で内容が固定されるため）
 - `検査語`: 置き場所のファイルに逐語で入れる語句（6〜20 文字）。執筆者はその行の規律を書くときにこの語句を本文に入れる
 - `出所`: `<元ファイル> / <見出し> / <太字の箇条や小見出し>`。元ファイルの略称は `SKILL`=`skills/herdr-hub/SKILL.md`、他は `skills/herdr-hub/references/<名>.md`
@@ -20,7 +20,7 @@
 | D009 | SKILL §1 / **live に無い + `kind` が解決できる** | 分岐 2: live に無く command か template が解決できるものは起動対象。人間への編成案の確認は外し、hub が人の承認を求めずに起こす | 変える | SKILL.md | 人の承認を求めずに起こす | - |
 | D010 | SKILL §1 / **live に無い + `kind` 無し** | 分岐 3: live に無く起動方法も無いエントリは即エラー。黙ってスキップ・警告で続行しない（typo 検出を守る） | 変える | SKILL.md | 即座にエラー | - |
 | D011 | SKILL §1 / presets・defaults・個別の参照先 role_def・rules file の検証 | 参照先の role_def と rules の file が存在し読めることを起動時に確認する。不在・不可読は即エラー。hub の rules と role_def は hub 自身が読み、worker 向けは briefing へ注入する | そのまま | SKILL.md | 不在・不可読は即エラー | - |
-| D012 | SKILL §2 transport（通信経路） | transport 3 種（herdr・sendmessage・codex-queue）の宛先別の自動解決と defaults.transport | 捨てる | - | - | 通信経路は hc send に一本化する（spec 4.3）。sendmessage・codex-queue は Herdr 1 のエージェントごとの経路で、マシン全域で名前を解決するためレーンの分離をすり抜ける |
+| D012 | SKILL §2 transport（通信経路） | transport 3 種（herdr・sendmessage・codex-queue）の宛先別の自動解決と defaults.transport | 捨てる | - | - | 通信経路は hc send に一本化する（spec 4.3）。sendmessage・codex-queue は旧来の `herdr` のエージェントごとの経路で、マシン全域で名前を解決するためレーンの分離をすり抜ける |
 | D013 | SKILL §3 通信プロトコル（骨子） | 通信は hc send に一本化する | 変える | SKILL.md | hc send に一本化 | - |
 | D014 | SKILL §3 / **通常送信は非同期** | 通常の送信は非同期。送って即答が要る同期照会だけが例外で、普通の指示・裁定は投げたら送信側のターンを終える | 変える | SKILL.md | 送信側のターンを終える | - |
 | D015 | SKILL §3 / **返信は hub 宛** | worker は hub のアドレスへ hc send で返信する。worker がこの手段を知るのは briefing だけなので、briefing に自分の名前・roster・hub のアドレスを必ず書く | 変える | SKILL.md | hub のアドレスを必ず書く | - |
@@ -50,7 +50,7 @@
 | D039 | SKILL §6 / 交代は **前任が内容ブロックを後任へ直接送る** | 交代では前任が内容ブロックを後任へ直接送り、hub はエンベロープを書く | そのまま | SKILL.md | hub はエンベロープを書く | - |
 | D040 | context ## 観測 | context 残量の観測の節 | そのまま | references/context-and-handover.md | context 残量の観測 | - |
 | D041 | context 観測 / **第一は pane を外側から読む** | 第一は画面を外側から hc read で読む。worker の文脈を消費しない（agent read と pane read の 2 本立ては hc read に一本化） | 変える | references/context-and-handover.md | 外側から hc read | - |
-| D042 | context 観測 / **Devin CLI（実測済み）** | Devin CLI は footer に使用率が常時描画される（Context: 127k / 262k tokens (48%)、2026-09-13 に Herdr 1 の実機で確認）。hc read で同じ値が読める前提で、hc 上では未再測定と明記する | 変える | references/context-and-handover.md | 127k / 262k tokens | - |
+| D042 | context 観測 / **Devin CLI（実測済み）** | Devin CLI は footer に使用率が常時描画される（Context: 127k / 262k tokens (48%)、2026-09-13 に旧来の `herdr` の実機で確認）。hc read で同じ値が読める前提で、hc 上では未再測定と明記する | 変える | references/context-and-handover.md | 127k / 262k tokens | - |
 | D043 | context 観測 / **Claude / Codex は要実機確認** | Claude と Codex は常時表示が無い・読めないときの代替手段として、クライアント側 slash コマンド（Claude /context、Codex /status）を打ち込んで描画を読む。モデルの文脈を消費しない。読み終えたら hc keys で esc を送って閉じる | 変える | references/context-and-handover.md | /context | - |
 | D044 | context 観測 / **それでも取れない agent kind はオンデマンド申告のみ** | それでも取れないエージェントはオンデマンド申告のみ。定期申告は禁止（往復自体が文脈を消費し、欄は捏造を招いた）。訊くときは hub が名指しし実測値の行ごと貼らせる | そのまま | references/context-and-handover.md | 定期申告は禁止 | - |
 | D045 | context ## 処置の 3 択（判断は hub） | 処置の 3 択（続行・compact・交代）の判断は hub。compact は名前・roster・briefing が存続するので最も安い。「いま失って困るのは土地勘か独立性か」で選ぶ | そのまま | references/context-and-handover.md | 土地勘か独立性か | - |
@@ -61,9 +61,9 @@
 | D050 | context 交代の手順 / 閾値は handoff を書くのに十分な残量が残っているうちに置く | 閾値は handoff を書くのに十分な残量が残るうちに置く。遅らせると handoff 品質のリスクを取る（交代コストの支配項は後任の再暖機で発火時期に依存しない） | そのまま | references/context-and-handover.md | 十分な残量が残るうち | - |
 | D051 | context 交代の手順 / 前任生存中に後任を仮名で起動（実装で `<元の名前の短縮>-h<連番>` に確定。-next の連結はやめた） | 前任が生きている間に後任を仮名 <name>-next で起動する（名前は core 全体で一意のため同名を取れない） | そのまま | references/context-and-handover.md | -h<連番> | - |
 | D052 | context 交代の手順 / briefing の内容ブロックは前任が後任へ直接送る | briefing の内容ブロックは前任が後任へ直接送る。前任が現在の状態・最初の一手・既知の罠を、hub が宛先 guard・役割・作法・境界・進め方を書く | そのまま | references/context-and-handover.md | 前任が後任へ直接送る | - |
-| D053 | context 交代の手順 / 送信は roster と同じ transport 推定で | 送信は roster と同じ transport 推定で行う | 捨てる | - | - | transport の自動推定は Herdr 1 の仕組み。送信は hc send に一本化（spec 4.3） |
+| D053 | context 交代の手順 / 送信は roster と同じ transport 推定で | 送信は roster と同じ transport 推定で行う | 捨てる | - | - | transport の自動推定は旧来の `herdr` の仕組み。送信は hc send に一本化（spec 4.3） |
 | D054 | context 交代の手順 / 前任 exit → 名の整理 | 前任の exit 後に名の整理を行う。正名を取るか、仮名のまま運用して台帳の記録を付け替えるか、どちらか一方は必ず行う（hc に端末の名前を変える操作が無いため、実装で仮名のまま運用に一本化） | 変える | references/context-and-handover.md | 仮名のまま運用する | - |
-| D055 | context 交代の手順 / `agent rename` が変えるのは agent 名のみ | agent rename と pane rename・tab rename による正名の付け替え、pane ラベル・tab ラベルが追従しない問題 | 捨てる | - | - | Herdr 1 の agent rename と pane・tab ラベルの仕組みそのもの。hc には起動後に名前を付ける操作が見当たらない（spec 4.3） |
+| D055 | context 交代の手順 / `agent rename` が変えるのは agent 名のみ | agent rename と pane rename・tab rename による正名の付け替え、pane ラベル・tab ラベルが追従しない問題 | 捨てる | - | - | 旧来の `herdr` の agent rename と pane・tab ラベルの仕組みそのもの。hc には起動後に名前を付ける操作が見当たらない（spec 4.3） |
 | D056 | context ## 発火時コストを常時化して潰す | 発火時のコストを常時の記録で減らす節 | そのまま | references/context-and-handover.md | 発火時のコスト | - |
 | D057 | context 発火時コスト / worker は進捗・判断・罠を log へ随時追記 | worker は進捗・判断・罠をログ file へ随時追記する（briefing の作法に含める）。置き場は hc-hub の名前空間に変える | 変える | references/context-and-handover.md | 随時追記する | - |
 | D058 | context 発火時コスト / handoff は「ログのパス + 差分のひとこと」 | handoff は「ログのパス + 差分のひとこと」で済ませる。発火時の生成コストを 0 に近づけ、高い閾値でも書き切れるようにする | そのまま | references/context-and-handover.md | ログのパス + 差分のひとこと | - |
@@ -142,9 +142,9 @@
 | D131 | messaging ## 待機・監視 | 待機と監視の節 | そのまま | references/messaging.md | 待機と監視の作法 | - |
 | D132 | messaging 待機 / 🔴 **`herdr agent wait` で他者を監視する指示を出さない** | 他者を hc wait で監視する指示を出さない。ターンを終えた agent は何もせず、wait を回す agent は自分の文脈を監視に浪費する（hub 自身の hc wait --children any は除く） | 変える | references/messaging.md | 監視する指示を出さない | - |
 | D133 | messaging 待機 / それ以外は「終わったらこちらへ報告せよ」を briefing/指示に書く | 終わったら報告させる指示を briefing や依頼に書く。起こすのは受け手であり、hc の親への自動通知（<hc> の通知）がそれを担う | 変える | references/messaging.md | 起こすのは受け手 | - |
-| D134 | messaging 待機 / Claude 間では SendMessage の `notify_when_idle` を使う | Claude 間の SendMessage notify_when_idle による idle 通知の購読 | 捨てる | - | - | SendMessage は Herdr 1 のエージェントごとの経路。hc では親への自動通知と hc wait --children any が担う（spec 4.2・4.3） |
+| D134 | messaging 待機 / Claude 間では SendMessage の `notify_when_idle` を使う | Claude 間の SendMessage notify_when_idle による idle 通知の購読 | 捨てる | - | - | SendMessage は旧来の `herdr` のエージェントごとの経路。hc では親への自動通知と hc wait --children any が担う（spec 4.2・4.3） |
 | D135 | messaging 待機 / 🔴 **「追います」「完了まで待ちます」を書かせない** | 「追います」「完了まで待ちます」を書かせない（worker にも hub 自身にも）。書くのは「いま何を区切ったか」と「次に誰が動くか」だけ | そのまま | references/messaging.md | 完了まで待ちます | - |
-| D136 | messaging ## 完了の回収（SendMessage を持たない宛先） / **依頼文の末尾に完了合図の定型を書く** | SendMessage を持たない宛先の完了回収: 依頼文の末尾に完了合図の定型（herdr agent prompt hub で pane ID を添えて送る）を書かせる。回答の途中や todo の一項目として打たせない | 捨てる | - | - | 完了合図の定型は Herdr 1 で SendMessage を持たない宛先を補う仕組み。hc は子のターン終了を親へ自動で通知する（spec 4.2） |
+| D136 | messaging ## 完了の回収（SendMessage を持たない宛先） / **依頼文の末尾に完了合図の定型を書く** | SendMessage を持たない宛先の完了回収: 依頼文の末尾に完了合図の定型（herdr agent prompt hub で pane ID を添えて送る）を書かせる。回答の途中や todo の一項目として打たせない | 捨てる | - | - | 完了合図の定型は旧来の `herdr` で SendMessage を持たない宛先を補う仕組み。hc は子のターン終了を親へ自動で通知する（spec 4.2） |
 | D137 | messaging 完了の回収 / 合図は「pane を読め」の合図 | 合図は「画面を読め」の合図であって完了の証拠ではない。状態が idle・done であることを確かめてから hc read で回収する（working なら背景で待つ） | 変える | references/messaging.md | 完了の証拠ではない | - |
 | D138 | messaging 完了の回収 / 打ち忘れは起きる | 通知は取りこぼされうる。wait の戻り値だけで完了を数えず、返るたびに hc ls と hc get で全 worker の状態を取り直す | 変える | references/messaging.md | 状態を取り直す | - |
 | D139 | messaging 完了の回収 / ⚠ hub 側を `agent wait` で張り付かせる形は、ターン終了で待機プロセスが死ぬので効かない | hub が wait で張り付く形は、ターンを終えると待機プロセスが死ぬので効かない。hc wait が同じ性質かは hc では未測定のため、断定せず注意として残す | 変える | references/messaging.md | 待機プロセス | - |
@@ -184,7 +184,7 @@
 | D173 | messaging 着地 / 着地報告への返信・受領確認・評価の擦り合わせはしない | 着地報告への返信・受領確認・評価の擦り合わせはしない | そのまま | references/messaging.md | 着地報告への返信 | - |
 | D174 | messaging 着地 / **例外は 1 つ** | 例外は 1 つ: 走行中の review・照会を止める「停止」の 1 行。merge・完了を走行中の側は観測できない | そのまま | references/messaging.md | 例外は 1 つ | - |
 | D175 | messaging ### 「agent を終わらせる」は pane close まで | 終了の完了形は、agent の exit ではなく後始末（hc kill → hc rm、台帳へ stop の記録）まで | 変える | references/messaging.md | 終了の完了形 | - |
-| D176 | messaging 終わらせる / **worker が自分で終わるとき** | worker が最終報告の後に自分の pane を close して終わる手順（自 pane の close が自殺コマンドになる。tab close・workspace close は他を巻き込むので使わない） | 捨てる | - | - | pane・tab・workspace を閉じる Herdr 1 の仕組みそのもの。hc では hub が結果を受け取ってから hc kill → hc rm で片付ける（spec 4.5） |
+| D176 | messaging 終わらせる / **worker が自分で終わるとき** | worker が最終報告の後に自分の pane を close して終わる手順（自 pane の close が自殺コマンドになる。tab close・workspace close は他を巻き込むので使わない） | 捨てる | - | - | pane・tab・workspace を閉じる旧来の `herdr` の仕組みそのもの。hc では hub が結果を受け取ってから hc kill → hc rm で片付ける（spec 4.5） |
 | D177 | messaging 終わらせる / worker の停止を hub が結果を受け取ってから行う | 結果（最終報告）を受け取ってから hub が worker を止める。報告の前に止めない | 変える | references/messaging.md | 結果を受け取ってから | - |
 | D178 | messaging 終わらせる / **hub が retire するとき** | hub が worker を retire するときは hc kill → hc rm で片付け、台帳に stop を記録する。人が tab を閉じて終了した worker も「終了した worker」として同様に扱う | 変える | references/messaging.md | hc kill → hc rm | - |
 | D179 | messaging 終わらせる / hub が「pane を残せ」と指示した場合は閉じない | hub が「残せ」と指示した場合は片付けない（証跡参照・交代の名付け用） | 変える | references/messaging.md | 残せと指示した場合は片付けない | - |
@@ -192,15 +192,15 @@
 | D181 | startup ## agent の配置（2 形態 — roster の `placement` で選択。既定は `tab`） | 配置は placement で選ぶ。値は tab と hidden で、既定は tab（spec 4.10） | 変える | references/startup.md | placement で選ぶ | - |
 | D182 | startup 配置 / ### `placement: tab`（既定）— 新規 tab に置く | tab 配置: hub は自分の herdr.space ラベルの値を読み、worker の起動時に --label herdr.space=<その値> を付ける。herdr.tab は付けない。ラベルが無いのに tab が解決されたら黙って hidden にせずエラー | 変える | references/startup.md | herdr.space | - |
 | D183 | startup 配置 / 人数が増えても視認性が劣化しない | tab の名前は worker の名前にする。人数が増えても視認性が劣化せず、サイドバーで役割が読める | 変える | references/startup.md | tab の名前は worker の名前 | - |
-| D184 | startup 配置 / export で tab label が役割の初期値になる関係とも相性がよい | export の雛形で tab label が役割の初期値になる関係との相性 | 捨てる | - | - | export は herdr tab list と agent list の突き合わせで、Herdr 1 の仕組みそのもの。hc-hub に export は持ち込まない |
-| D185 | startup 配置 / ### `placement: pane` — 現 tab に分割 / **2〜3 名までが実用域** | pane 配置: 現 tab を split し、広い pane は right・狭い pane は down、2〜3 名まで | 捨てる | - | - | hub の tab を分割する pane 配置は持ち込まない（spec 4.10、設計者の判断）。split と layout は Herdr 1 の pane の仕組みそのもの |
+| D184 | startup 配置 / export で tab label が役割の初期値になる関係とも相性がよい | export の雛形で tab label が役割の初期値になる関係との相性 | 捨てる | - | - | export は herdr tab list と agent list の突き合わせで、旧来の `herdr` の仕組みそのもの。hc-hub に export は持ち込まない |
+| D185 | startup 配置 / ### `placement: pane` — 現 tab に分割 / **2〜3 名までが実用域** | pane 配置: 現 tab を split し、広い pane は right・狭い pane は down、2〜3 名まで | 捨てる | - | - | hub の tab を分割する pane 配置は持ち込まない（spec 4.10、設計者の判断）。split と layout は旧来の `herdr` の pane の仕組みそのもの |
 | D186 | startup 配置 / ### 共通ルール・事後の移動 | 配置の共通ルールの節 | 変える | references/startup.md | 配置の共通ルール | - |
 | D187 | startup 共通ルール / **`--no-focus` を付ける** | 人間のフォーカスを奪わない。worker は hc run --bg で起こす | 変える | references/startup.md | フォーカスを奪わない | - |
 | D188 | startup 共通ルール / **`--cwd "$PWD"` を明示する** | 作業ディレクトリを hc run --cwd で明示し、呼び出し側の cwd を暗黙に引き継がない | 変える | references/startup.md | --cwd を明示する | - |
 | D189 | startup 共通ルール / 新 pane ID は応答の `.result.pane.pane_id` を読む | 新しいアドレスは hc run の応答から読み、サイドバーの並びから推測しない | 変える | references/startup.md | 並びから推測しない | - |
-| D190 | startup 共通ルール / 既存 pane を後から tab 化できる: `pane move` | pane move による後からの tab 化（--label と --tab-label の意味差が未検証） | 捨てる | - | - | Herdr 1 の pane move そのもの。pane の移動と、移動後の新しい pane ID への追従は hc に無い |
+| D190 | startup 共通ルール / 既存 pane を後から tab 化できる: `pane move` | pane move による後からの tab 化（--label と --tab-label の意味差が未検証） | 捨てる | - | - | 旧来の `herdr` の pane move そのもの。pane の移動と、移動後の新しい pane ID への追従は hc に無い |
 | D191 | startup 共通ルール / workspace / worktree の新設は人間が明示した場合だけ | workspace や worktree の新設は人間が明示した場合だけ。hc に workspace は無く、worktree の新設は worktrees の規約に従う | 変える | references/startup.md | 新設は人間が明示した場合だけ | - |
-| D192 | startup ## agent の起動 | 起動の節。agent start は利用可能な shell pane が前提で layout は作らない | 捨てる | - | - | shell pane を前提にする agent start は Herdr 1 の仕組み。hc run は pane を要らない |
+| D192 | startup ## agent の起動 | 起動の節。agent start は利用可能な shell pane が前提で layout は作らない | 捨てる | - | - | shell pane を前提にする agent start は旧来の `herdr` の仕組み。hc run は pane を要らない |
 | D193 | startup 起動 / 名前は `[a-z][a-z0-9_-]{0,31}`、live 間で一意 | 名前は core 全体で一意。動的な worker は <レーン>-<preset>-<連番> の規則で自動に付け、32 文字を超えるときの短縮規則を書く。重複は hc run の失敗としてエラーにし、黙って別名にしない | 変える | references/startup.md | core 全体で一意 | - |
 | D194 | startup 起動 / kind 一覧とオプションは `--help` で確認 | エージェントの指定は command か template。引数とオプションの正典はインストール済みバイナリの hc run --help | 変える | references/startup.md | hc run --help | - |
 | D195 | startup 起動 / agent 固有の引数は `--` 以降に渡す | エージェント固有の引数は command の argv に入れる | 変える | references/startup.md | command の argv | - |
@@ -213,7 +213,7 @@
 | D202 | startup 起動手順 / 2. 起動前に人間へ編成案を 1 行で確認する | 起動前の人間への編成案の確認は外し、人の承認を求めずに起こす。人の承認を外すぶん棚卸しの歯止めは残す | 変える | references/startup.md | 人の承認を求めずに起こす | - |
 | D203 | startup 起動手順 / 3. `placement` に従い tab/pane を用意し `agent start` | 起動は hc-hub spawn-argv の出力をそのまま hc に渡す。--outlive-parent・ラベル・herdr.space は CLI が組み立て、手で hc run を組まない | 変える | references/startup.md | hc-hub spawn-argv | - |
 | D204 | startup 起動手順 / 4. `agent list` で live 解決を再確認 → briefing 送信 | 依頼が届いたかを状態が working になる・ターンが進むことで確認する。届いてから台帳に spawn を記録し、briefing を送る（稼働途中の追加は「現在の状態」入り 8 ブロック版） | 変える | references/startup.md | 8 ブロック版 | - |
-| D205 | startup ## 命名規約（重要） | agent 名・Claude セッション名・Codex セッション名の 3 系統の名前を揃え、宛先解決を 1 つの roster で済ませる | 捨てる | - | - | 3 系統は transport ごとの宛先名で、Herdr 1 の仕組みそのもの。hc は --name の 1 系統で、名前は自動付与の規則 1 つで決まる（spec 4.5） |
+| D205 | startup ## 命名規約（重要） | agent 名・Claude セッション名・Codex セッション名の 3 系統の名前を揃え、宛先解決を 1 つの roster で済ませる | 捨てる | - | - | 3 系統は transport ごとの宛先名で、旧来の `herdr` の仕組みそのもの。hc は --name の 1 系統で、名前は自動付与の規則 1 つで決まる（spec 4.5） |
 | D206 | startup ## 起動後 | 起動後は live を確認し、roster 検証へ進み、briefing を送る。briefing は hub が書き、人間に書かせない | 変える | references/startup.md | 人間に書かせない | - |
 | D207 | startup ## 注意 | 起動に関する注意の節 | そのまま | references/startup.md | 起動に関する注意 | - |
 | D208 | startup 注意 / 自動起動は `kind` を持つエントリ限定 + 人間の確認付き | 自動起動は command か template が解決できるエントリに限る。人間の確認は外す。起動方法の無い agent を hub が勝手に作らない（両方ある・どちらも無いはエラー） | 変える | references/startup.md | command か template | - |
@@ -224,9 +224,9 @@
 | D213 | failure-modes herdr 固有 / `unknown` を完了と誤読 | 状態が報告されない（status が null のまま）ことを完了と読まない。信頼確認ダイアログ中は null のままで、wait も blocked の通知も来ない。hc read で画面を確かめる | 変える | references/failure-modes.md | 状態が null のまま | - |
 | D214 | failure-modes herdr 固有 / timeout/stalled を未配送と誤読して再送 | timeout や stalled を未配送と読んで再送しない。配送は済んでいる可能性が高い。再送前に hc read で届いたか確認する | 変える | references/failure-modes.md | 再送前に hc read | - |
 | D215 | failure-modes herdr 固有 / pane から応答が読めない | alternate screen 上で描画される応答は host scrollback に残らず、行数を増やしても読めない。受け手に応答をファイルに書いてパスだけ返すよう依頼する（hc read で同じ現象が起きるかは未確認） | 変える | references/failure-modes.md | 応答をファイルに書いて | - |
-| D216 | failure-modes herdr 固有 / agent exit で名が消える | agent の exit で名が消え、交代・再起動で agent start により付け直す | 捨てる | - | - | 名が live agent に紐づく Herdr 1 の仕組みそのもの。hc は名前が terminal に付き、hc rm まで残る |
-| D217 | failure-modes herdr 固有 / `session stop`→`attach` で全 agent 名が消える | session stop から attach で全 agent 名が消え、herdr-session で付け直す | 捨てる | - | - | Herdr 1 の session の仕組みそのもの。Herdr 2 は再起動でプログラムが消え、名前を付け直す対象が無い（spec 4.1） |
-| D218 | failure-modes herdr 固有 / `pane move` 後に旧 pane ID で宛先不明 | pane move の後に旧 pane ID が解決しない | 捨てる | - | - | pane の移動と pane ID は Herdr 1 の仕組みそのもの |
+| D216 | failure-modes herdr 固有 / agent exit で名が消える | agent の exit で名が消え、交代・再起動で agent start により付け直す | 捨てる | - | - | 名が live agent に紐づく旧来の `herdr` の仕組みそのもの。hc は名前が terminal に付き、hc rm まで残る |
+| D217 | failure-modes herdr 固有 / `session stop`→`attach` で全 agent 名が消える | session stop から attach で全 agent 名が消え、herdr-session で付け直す | 捨てる | - | - | 旧来の `herdr` の session の仕組みそのもの。herdr-core は再起動でプログラムが消え、名前を付け直す対象が無い（spec 4.1） |
+| D218 | failure-modes herdr 固有 / `pane move` 後に旧 pane ID で宛先不明 | pane move の後に旧 pane ID が解決しない | 捨てる | - | - | pane の移動と pane ID は旧来の `herdr` の仕組みそのもの |
 | D219 | failure-modes herdr 固有 / `agent wait --until idle` が作業中に返る | wait が作業中に返る。prompt 入力中の隙間で idle を観測して settled と判定する。回収には status だけでなく画面の文面の poll を併用する。wait が返ったら画面を読み、宣言だけで終わったか完了かを見分ける | 変える | references/failure-modes.md | 宣言だけで終わった | - |
 | D220 | failure-modes herdr 固有 / Devin が permission prompt で停止 | エージェントが権限確認の画面で blocked になる。hub は approval の範囲で画面を読んで答え、範囲外は人に上げる（従来の「hub は UI を回答しない」から変える） | 変える | references/failure-modes.md | 画面に承認 UI | - |
 | D221 | failure-modes herdr 固有 / `tab create` が別 workspace に作られる | tab の作成先を指定しないと、意図しない場所に tab が出る。hc-hub は hub 自身の herdr.space ラベルから決め、無ければエラーにする | 変える | references/failure-modes.md | 意図しない space に | - |
@@ -273,7 +273,7 @@
 | D262 | roster 個別フィールド / `rules` | rules はその agent が従う規律 file（群）。delivery は宛先で分かれる | そのまま | references/roster.md | 規律 file（群） | - |
 | D263 | roster 個別フィールド / `preset` | preset は presets のキー名。未定義の preset は即エラー | そのまま | references/roster.md | 未定義の preset | - |
 | D264 | roster 個別フィールド / `kind` | kind は廃止し command（argv の配列）か template（hc の template 名）のどちらか一方に置き換える。書かれていたら未知のキーとしてエラーにし、置き換え先を表示する | 変える | references/roster.md | 置き換え先を表示 | - |
-| D265 | roster 個別フィールド / `transport` | transport（herdr・sendmessage・codex-queue・auto）の送信経路指定 | 捨てる | - | - | hc send に一本化したため廃止（spec 4.3・4.7）。transport は経路選択そのもので Herdr 1 の仕組み |
+| D265 | roster 個別フィールド / `transport` | transport（herdr・sendmessage・codex-queue・auto）の送信経路指定 | 捨てる | - | - | hc send に一本化したため廃止（spec 4.3・4.7）。transport は経路選択そのもので旧来の `herdr` の仕組み |
 | D266 | roster 個別フィールド / `handoff_at` | handoff_at は 0〜1 の交代判定の使用率閾値（既定 0.8） | そのまま | references/roster.md | 交代判定の使用率閾値 | - |
 | D267 | roster 個別フィールド / `placement` | placement は tab か hidden で、既定は tab。それ以外の値はエラー | 変える | references/roster.md | hidden | - |
 | D268 | roster 個別フィールド / **解決順序** | 解決順序は defaults → レーン → preset → 個別で、後のものが優先する。rules だけは union | 変える | references/roster.md | 後のものが優先 | - |
@@ -292,16 +292,16 @@
 | D281 | roster 起動時検証 / **`preset` 参照が `presets:` で定義されていること** | preset 参照が presets で定義されていること。未定義名は即エラー | そのまま | references/roster.md | preset 参照 | - |
 | D282 | roster 起動時検証 / **`role_def` / `rules` で参照される file がすべて存在し読めること** | role_def と rules で参照される file がすべて存在し読めること（preset・defaults 経由の分も含む）。不在・不可読は即エラー | そのまま | references/roster.md | 存在し読めること | - |
 | D283 | roster 起動時検証 / **返信宛先 `hub` が live に解決すること** | worker の返信宛先の hub が live に解決することを確かめる。返信先は briefing に書く hub のアドレスで示す | 変える | references/roster.md | 返信宛先の hub が live | - |
-| D284 | roster 起動時検証 / 返信宛先の改名（`agent rename <self-pane> hub`・sendmessage の名前） | 自分の agent 名を hub に改名して返信宛先を揃える手順と、sendmessage の受け手名を hub に揃える手順 | 捨てる | - | - | agent rename は Herdr 1 の仕組みそのもの。hc には起動後に名前を付ける操作が見当たらず、hub はラベルとアドレスで識別する（spec 4.3） |
+| D284 | roster 起動時検証 / 返信宛先の改名（`agent rename <self-pane> hub`・sendmessage の名前） | 自分の agent 名を hub に改名して返信宛先を揃える手順と、sendmessage の受け手名を hub に揃える手順 | 捨てる | - | - | agent rename は旧来の `herdr` の仕組みそのもの。hc には起動後に名前を付ける操作が見当たらず、hub はラベルとアドレスで識別する（spec 4.3） |
 | D285 | roster 起動時検証 / 逆方向も見る | live だが roster に無い agent は名簿の陳腐化として扱う。hub の起動時点検では、ラベルはあるのに台帳に無い worker を引き継がずに人に上げる | 変える | references/roster.md | 名簿の陳腐化 | - |
 | D286 | roster 起動時検証 / roster が古い・矛盾する場合の修復は人間の判断 | roster が古い・矛盾する場合の修復は人間の判断で、hub が勝手に roster を書き換えない。動的な worker は roster に書かないので、動的追加という例外は持たない | 変える | references/roster.md | 勝手に roster を書き換えない | - |
 | D287 | roster ## 動的追加（稼働中に agent を足す） | 稼働中の worker の追加は roster への追記ではなく台帳への記録で扱う。動的な worker は roster に書かない（名簿と台帳を分ける） | 変える | references/roster.md | roster に書かない | - |
 | D288 | roster 動的追加 / 2. 起動時検証と同じ 3 分岐をそのエントリに適用 | 起動方法が解決できるなら起動、無ければエラーという同じ検証を動的な worker にも適用する | 変える | references/roster.md | 同じ検証を動的な worker | - |
 | D289 | roster 動的追加 / 3. briefing を送る（8 ブロック版） | 稼働途中の参加なので「現在の状態」ブロックを含む 8 ブロック版の briefing を送る | そのまま | references/roster.md | 稼働途中の参加 | - |
 | D290 | roster 動的追加 / ⛔ **追記せずに live にだけ追加しない** | 記録せずに live にだけ追加しない。起こした worker は台帳に記録し、記録の無い worker を残さない（記録に失敗したら片付けて人に上げる） | 変える | references/roster.md | 記録の無い worker を残さない | - |
-| D291 | roster ## export（現在の配置から雛形を作る） | herdr tab list と agent list の JSON を突き合わせ、tab label を role の初期値にした YAML 雛形を生成する export | 捨てる | - | - | Herdr 1 の herdr tab list・agent list の出力を結合する手順そのもの。spec に hc-hub の export は無い |
+| D291 | roster ## export（現在の配置から雛形を作る） | herdr tab list と agent list の JSON を突き合わせ、tab label を role の初期値にした YAML 雛形を生成する export | 捨てる | - | - | 旧来の `herdr` の herdr tab list・agent list の出力を結合する手順そのもの。spec に hc-hub の export は無い |
 | D292 | roster ## 交代時の仮名 | 交代では前任生存中に後任を仮名 <name>-next で起動し、前任の exit 後に後任へ付け替える | そのまま | references/roster.md | 後任へ付け替える | - |
-| D293 | transports 冒頭・## 解決の優先順位 | 宛先ごとに transport を上から最初に合致した規則で解決する（個別指定・Claude から Claude は sendmessage・宛先が Codex は codex-queue・defaults.transport・既定は herdr）。transport: auto の扱い | 捨てる | - | - | 宛先ごとの経路選択は Herdr 1 の transport の仕組みそのもの。hc send に一本化（spec 4.3） |
+| D293 | transports 冒頭・## 解決の優先順位 | 宛先ごとに transport を上から最初に合致した規則で解決する（個別指定・Claude から Claude は sendmessage・宛先が Codex は codex-queue・defaults.transport・既定は herdr）。transport: auto の扱い | 捨てる | - | - | 宛先ごとの経路選択は旧来の `herdr` の transport の仕組みそのもの。hc send に一本化（spec 4.3） |
 | D294 | transports ### `defaults.transport` の効き方 | defaults.transport は native 経路を持たない宛先にだけ効く代替の指定 | 捨てる | - | - | transport の仕組みそのもの。hc send に一本化（spec 4.3） |
 | D295 | transports ## `herdr`（既定・汎用） | herdr agent prompt による非同期送信（既定）と --wait による同期照会、宛先は live agent name または pane ID | 変える | references/messaging.md | 宛先は名前かアドレス | - |
 | D296 | transports herdr / `agent_blocked` | 宛先が承認・質問 UI で待っている間、送信は行われない。画面を読んでから人に判断を仰ぐ。hc send は blocked の宛先を exit 9 で拒否し、答えるなら画面を読んで hc keys か hc send --force | 変える | references/approvals.md | hc send --force | - |

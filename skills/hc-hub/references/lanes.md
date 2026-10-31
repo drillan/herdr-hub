@@ -62,7 +62,7 @@ hc-hub guard --op <op> <t>
 
 ## 通信経路
 
-通信は `hc send` に一本化する。Herdr 1 の運用にあった `sendmessage`・`codex-queue` は持ち込まない。
+通信は `hc send` に一本化する。旧来の `herdr` の運用にあった `sendmessage`・`codex-queue` は持ち込まない。
 
 - どちらもエージェントごとの経路で、エージェントを設定ファイルで選ぶ方針と合わない
 - どちらもマシン全域で名前を解決し、レーンの分離をすり抜ける

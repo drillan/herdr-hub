@@ -1,6 +1,6 @@
 # failure-modes（実害カタログ）
 
-何が起きたか / 区別できた最小の観測 / 打った手、の 3 列で書く。新しい失敗が出たらここへ足す。「実測」と書いたものは、hc 0.1.15 で使い捨てのターミナルを使って確かめたもの。それ以外は Herdr 1 での運用の実績を hc の道具に置き換えたもので、hc 上では未再測定。
+何が起きたか / 区別できた最小の観測 / 打った手、の 3 列で書く。新しい失敗が出たらここへ足す。「実測」と書いたものは、hc 0.1.15 で使い捨てのターミナルを使って確かめたもの。それ以外は旧来の `herdr` での運用の実績を hc の道具に置き換えたもので、hc 上では未再測定。
 
 ## hc 固有の罠
 
@@ -13,7 +13,7 @@
 | `hc get` の `where` が別の tab の worker と同じ tab 番号を示す（実測） | 別の tab にいる 2 つの worker が、どちらも `… / 2` と見える。「同じ tab かもしれない」と迷って `tab.rename` を省いた | 名前の無い tab の名前は並び順の番号で、新しい tab は 2 番目に差し込まれるため番号がずれ、`where` はそのずれで更新されない（`tab.rename` では更新される）。tab の判定は `herdr-app ls` の `spaces[].tabs[].terminals[].terminal` で行い、`where` では行わない。`tab.rename` は省かない（[startup.md](startup.md)「配置」） |
 | `unknown` や分類不能な状態を完了と誤読 | 状態が分類できない | 分類不能は完了の証明ではない。応答を `hc read` で確認する |
 | 完了した子が `hc wait --children any` に出てこない（実測） | 終了済みの子は一覧から外れ、待機を走らせていない間に終わった子は、次の待機でも報告されない。子が 0 件のときは待たずに即座に返る | 待機の戻り値だけで子の完了を数えない。返るたびに `hc ls --label hc-hub.lane=<L>` と `hc get` で全 worker の状態を取り直す（[messaging.md](messaging.md)） |
-| `hc wait` がターン終了で返り、完了と誤読（実測） | worker が「バックグラウンドで実行中です」と宣言しただけでターンを終え、`status: done` で返った | 返ったあとは画面を読み、宣言だけで終わったか完了かを見分ける。回収には状態だけでなく画面の文面の確認を併用する。Herdr 1 では、prompt の入力中の隙間で idle を観測して settled と判定され、作業中に wait が返る形でも出た |
+| `hc wait` がターン終了で返り、完了と誤読（実測） | worker が「バックグラウンドで実行中です」と宣言しただけでターンを終え、`status: done` で返った | 返ったあとは画面を読み、宣言だけで終わったか完了かを見分ける。回収には状態だけでなく画面の文面の確認を併用する。旧来の `herdr` では、prompt の入力中の隙間で idle を観測して settled と判定され、作業中に wait が返る形でも出た |
 | `blocked` の子に `hc send` が通らない（実測） | exit 9、`kind: blocked`。`hint` は「画面を読め、または `--force`」 | 先に `hc read <t>` で画面を読む。選択肢の画面なら `hc keys <t> …` で押し、文字を送る必要があるときだけ `hc send --force <t> "…"`。画面を読まずに `--force` を使わない |
 | command で起こした worker に `<hc from=… reach=…>` のタグも `first_message` も付かない（実測） | `hc run` の出力は `address`・`agent`・`cwd`・`name`・`parent`・`state`・`turn` のみ。依頼は argv の文字列がそのまま最初の入力になる | 返信先をタグに頼らない。briefing に hub のアドレスを必ず書く（[briefing.md](briefing.md)）。依頼が届いたかは `hc get` の状態遷移で確かめる（[startup.md](startup.md)） |
 | hub が終わると worker が一緒に終わる | hub の終了・交代のあと worker の `state` が `finished` になる | hc の既定では子は親と一緒に終わる。worker は必ず `--outlive-parent` で起こす。手で `hc run` を組むとこれを落とす。起動は `hc-hub spawn-argv` の出力をそのまま使う（[startup.md](startup.md)） |

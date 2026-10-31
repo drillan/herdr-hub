@@ -52,4 +52,4 @@ opencode v2.2.5 で確かめたこと（2026-10-31。対話の画面の起動だ
 4. 信頼の確認のように、状態が `null` のまま止まる画面が無いかを、未信頼の cwd で起こして確かめる
 5. この節に、測った日・hc のバージョンとともに、見出しを 1 つ立てて書く。測っていないことは「未測定」と書く
 
-例（Herdr 1 の運用で知られていたことで、hc では未測定）: Devin は `--permission-mode` を省略すると auto で起き、tool の承認待ちで黙って停止する。`-- --permission-mode dangerous` を付けるとプロジェクトの deny list まで auto-approve する。deny を維持するなら hook 側で塞ぐ。
+例（旧来の `herdr` の運用で知られていたことで、hc では未測定）: Devin は `--permission-mode` を省略すると auto で起き、tool の承認待ちで黙って停止する。`-- --permission-mode dangerous` を付けるとプロジェクトの deny list まで auto-approve する。deny を維持するなら hook 側で塞ぐ。

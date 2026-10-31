@@ -168,11 +168,11 @@ context 使用率が `handoff_at`（既定 0.8 = 80% 使用）に達したら交
 
 詳細は [context-and-handover.md](skills/herdr-hub/references/context-and-handover.md)。
 
-## hc-hub（Herdr 2 / herdr-core 向け）
+## hc-hub（herdr-core 向け）
 
-Herdr 2（herdr-core、CLI は `hc`）の上で、**レーンごとの hub** が複数のコーディングエージェントを起動・監視・停止するための runbook。呼び出したエージェントが hub になる点は herdr-hub と同じ。旧 `herdr` の環境には herdr-hub を使う。
+herdr-core（CLI は `hc`）の上で、**レーンごとの hub** が複数のコーディングエージェントを起動・監視・停止するための runbook。呼び出したエージェントが hub になる点は herdr-hub と同じ。旧来の `herdr` の環境には herdr-hub を使う。
 
-### herdr-hub（Herdr 1 版）との違い
+### herdr-hub（旧来の `herdr` 版）との違い
 
 - 前提は `HERDR_ENV=1` ではなく `HC_TERMINAL_ID`。操作は `herdr` ではなく `hc` で行う
 - roster は `.hc-hub.yml`。**レーン**（`lanes:`）ごとに hub と worker を束ね、台帳（`ledger`）に起動・停止を追記する。`kind` と `transport` は廃止し、起動方法は `command` か `template`、通信は `hc send` に一本化した
@@ -225,12 +225,12 @@ hub は `hc wait --children any` で長く待つため、context が膨らむと
 
 この repo からは 3 つの skill を配布する（`gh skill install drillan/herdr-hub <name>` で個別インストール可）:
 
-- **herdr-hub** — 上記の hub-spoke 運用 runbook（Herdr 1 向け）
-- **hc-hub** — Herdr 2（herdr-core）向けの hub runbook。上の「hc-hub」節を参照
+- **herdr-hub** — 上記の hub-spoke 運用 runbook（旧来の `herdr` 向け）
+- **hc-hub** — herdr-core 向けの hub runbook。上の「hc-hub」節を参照
 - **herdr-session** — `session stop` → `attach` でリセットされる agent 名を capture/restore するユーティリティ（`skills/herdr-session/`）。HERDR_ENV=1 の pane 内で `herdr-session capture`（stop 前・rename 後）/ `herdr-session restore`（attach 後）/ `herdr-session status` を実行。照合は native session UUID で行うため pane ID の変動に強い。詳細は同 skill の SKILL.md
 
 ```
-skills/hc-hub/                             # Herdr 2 向けの hub runbook（同梱 CLI つき）
+skills/hc-hub/                             # herdr-core 向けの hub runbook（同梱 CLI つき）
   SKILL.md                                # skill 入口
   references/                             # 12 ファイル（lanes・approvals・agents・roster・startup 等）
   scripts/hc-hub                          # 同梱 CLI（preflight・validate・start・spawn-argv・guard・ledger 等）

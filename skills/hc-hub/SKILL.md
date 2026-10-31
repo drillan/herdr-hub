@@ -1,12 +1,12 @@
 ---
 name: hc-hub
-description: Herdr 2（herdr-core の hc）で、レーンごとの hub が複数のコーディングエージェントを起動・監視・停止する runbook。呼び出したエージェントが hub になる。「別エージェントに作業を頼みたい」「レーンごとに worker を束ねたい」「worker / reviewer を並行運用したい」「hc で agent 同士を連携させたい」で起動。HC_TERMINAL_ID が前提。旧 herdr には herdr-hub を使う。
+description: herdr-core（`hc`）で、レーンごとの hub が複数のコーディングエージェントを起動・監視・停止する runbook。呼び出したエージェントが hub になる。「別エージェントに作業を頼みたい」「レーンごとに worker を束ねたい」「worker / reviewer を並行運用したい」「hc で agent 同士を連携させたい」で起動。HC_TERMINAL_ID が前提。旧来の herdr には herdr-hub を使う。
 license: MIT
 ---
 
 # hc-hub
 
-Herdr 2（herdr-core、CLI は `hc`）の上で、レーンごとの hub が worker を動的に起動・監視・停止するための **hub のための runbook**。段階順に並んでいるので、**いま自分がどの段階にいるかで引く**。公式の `herdr-core` skill は user scope に入れない前提で設計している（description が広く発火し、worker の Claude にも見えて勝手に `hc run` を誘発しうるため）。
+herdr-core（CLI は `hc`）の上で、レーンごとの hub が worker を動的に起動・監視・停止するための **hub のための runbook**。段階順に並んでいるので、**いま自分がどの段階にいるかで引く**。公式の `herdr-core` skill は user scope に入れない前提で設計している（description が広く発火し、worker の Claude にも見えて勝手に `hc run` を誘発しうるため）。
 
 - レーンの定義・ラベル・操作前のガード → [references/lanes.md](references/lanes.md)
 - 承認待ちへの対応（hub が答える範囲） → [references/approvals.md](references/approvals.md)
@@ -50,7 +50,7 @@ hc --skill          # 毎回読む
 herdr-app --skill   # 画面（tab・split）を触るときだけ
 ```
 
-旧 `herdr` のコマンドは使わない。
+旧来の `herdr` のコマンドは使わない。
 
 **hc 公式の既定を、この skill は 2 点だけ上書きする。**
 

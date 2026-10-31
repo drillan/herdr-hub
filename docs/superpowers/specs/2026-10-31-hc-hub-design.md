@@ -1,14 +1,14 @@
-# hc-hub — Herdr 2（herdr-core `hc`）向け hub skill の設計
+# hc-hub — herdr-core（`hc`）向け hub skill の設計
 
-2026-10-31。新しい配布 skill `hc-hub` を同じ repo の `skills/hc-hub/` に追加する設計。既存の `herdr-hub`・`herdr-session`（Herdr 1 = `herdr` 0.9 系向け）は変更しない。
+2026-10-31。新しい配布 skill `hc-hub` を同じ repo の `skills/hc-hub/` に追加する設計。既存の `herdr-hub`・`herdr-session`（旧来の `herdr` 0.9 系向け）は変更しない。
 
 本文中の「開発者の決定」はこの設計の対話で開発者が決めたこと、「設計者の判断」は対話で開発者に確認していない設計者の選択であり、builder が覆してよい。
 
 ## 1. 目的と背景
 
-Herdr 2 は、ターミナルを動かし続ける常駐の core（herdr-core、CLI は `hc`）と、その表示役のデスクトップアプリ（`herdr-app`）に分かれた。Herdr 1 の `herdr agent …`・`HERDR_ENV`・session に依存する `herdr-hub` は、Herdr 2 の端末内では §0 の前提検査で停止し、使えない。
+herdr-core（CLI は `hc`）は、ターミナルを動かし続ける常駐の core で、その表示役はデスクトップアプリの Herdr app（`herdr-app`）が担う。旧来の `herdr` の `herdr agent …`・`HERDR_ENV`・session に依存する `herdr-hub` は、herdr-core の端末内では §0 の前提検査で停止し、使えない。
 
-ある業務プロジェクトでは、Herdr 1 の上で `herdr-hub` を次の形で運用してきた。Herdr 2 でも同じ運用を続けたい。
+ある業務プロジェクトでは、旧来の `herdr` の上で `herdr-hub` を次の形で運用してきた。herdr-core の上でも同じ運用を続けたい。
 
 - 1 つの repo を複数のレーン（例: バックエンドとフロントエンドの並行実装）に分け、レーンごとに hub が 1 人いる
 - hub は長く走り続け、自分の判断で worker・reviewer・advisor を起こし、要らなくなったら止める（起動に開発者の承認は求めない）
@@ -27,7 +27,7 @@ Herdr 2 は、ターミナルを動かし続ける常駐の core（herdr-core、
 
 - 別マシンで worker や hub を動かすこと（`hc run --on` など）。開発者の決定で、最初の版は同じマシンの同じ core に限る
 - hub の自動交代。hub の交代は人が手で行う（開発者の決定。Claude の hub は `autoCompactWindow` の設定で交代の頻度が下がっている）
-- Herdr 1 との両対応。Herdr 1 は既存の `herdr-hub` が受け持つ
+- 旧来の `herdr` との両対応。旧来の `herdr` は既存の `herdr-hub` が受け持つ
 - 機構による遮断（ACL）。レーンの分離は手順として守る規律であり、その限界を runbook に明記する
 
 **反目標（動いても失敗とみなすもの）**
@@ -36,7 +36,7 @@ Herdr 2 は、ターミナルを動かし続ける常駐の core（herdr-core、
 - hub が分類器や hook の拒否を、表面を変えて通すこと
 - 他のレーンの worker に干渉すること
 
-## 3. 前提となる Herdr 2 の性質（2026-10-30〜31 に hc 0.1.14・herdr-app 0.1.9 で確認）
+## 3. 前提となる herdr-core と Herdr app の性質（2026-10-30〜31 に hc 0.1.14・herdr-app 0.1.9 で確認）
 
 | 性質 | 確認方法 |
 |---|---|
@@ -58,14 +58,14 @@ Herdr 2 は、ターミナルを動かし続ける常駐の core（herdr-core、
 ### 4.1 名前と置き場所（開発者の決定）
 
 - skill 名は `hc-hub`。`skills/hc-hub/` に置き、`gh skill publish` の配布対象にする
-- `herdr-hub`・`herdr-session` は Herdr 1 用として残し、中身は変えない。`herdr-session` に当たるものは作らない（Herdr 2 では再起動でプログラムが消えるため、名前を付け直す対象がない）
+- `herdr-hub`・`herdr-session` は旧来の `herdr` 用として残し、中身は変えない。`herdr-session` に当たるものは作らない（herdr-core では再起動でプログラムが消えるため、名前を付け直す対象がない）
 
 ### 4.2 §0 の前提と、hc の手引きの扱い
 
 - 前提は `HC_TERMINAL_ID` が設定されていること。無ければ「herdr-core の管理下ではない」と報告して停止する。`herdr-app` のウィンドウが開いていることは前提にしない
 - hc の通知が無効になっていないこと。`~/.config/herdr-core/config.toml` の `notes = false` では、親への通知も `<hc>` のタグも出ず、承認待ちに気づく経路が無くなる。§0 で確かめ、無効ならエラーにする（確かめ方は §5-6）。worker の起動に `--no-notify` は付けない
 - hc の手引きの本文は写さない。§0 で毎回 `hc --skill` を実行して読ませる。画面（tab・split）を操作するときだけ `herdr-app --skill` を読ませる。CLI 構文の正典はインストール済みのバイナリとする（既存 `herdr-hub` と同じ方針）
-- 公式 `herdr-core` skill から取り込むのは入口の指示（`HC_TERMINAL_ID` での判定・`hc --skill` を読む・旧 `herdr` は使わない）だけで、言い換えて書く。公式 skill は user scope に入れない前提で設計する（description が広く発火し、worker の Claude にも見えて勝手に `hc run` を誘発しうるため）
+- 公式 `herdr-core` skill から取り込むのは入口の指示（`HC_TERMINAL_ID` での判定・`hc --skill` を読む・旧来の `herdr` は使わない）だけで、言い換えて書く。公式 skill は user scope に入れない前提で設計する（description が広く発火し、worker の Claude にも見えて勝手に `hc run` を誘発しうるため）
 - 公式 skill の hc 側の既定のうち、次の 2 点を hc-hub は明示的に上書きする。上書きであることを runbook に書く
   - 「`blocked` は人に尋ねよ、`--force` で迂回するな」 → 4.6 の範囲で hub が答える
   - 「子は親と一緒に終わる」 → 4.5 のとおり worker は `--outlive-parent` で起こす
@@ -191,18 +191,18 @@ lanes:
 
 ### 4.8 既存 references の扱い
 
-- バックエンドに依存しない規律は、`herdr-hub` から `hc-hub` へ写す。対象は `adjudication`・`escalation`・`worktrees` の 3 つ（grep で Herdr 1 のコマンドを含まないことを確認済み）。skill はディレクトリ単位でインストールされるため、skill をまたぐ参照はできない
+- バックエンドに依存しない規律は、`herdr-hub` から `hc-hub` へ写す。対象は `adjudication`・`escalation`・`worktrees` の 3 つ（grep で旧来の `herdr` のコマンドを含まないことを確認済み）。skill はディレクトリ単位でインストールされるため、skill をまたぐ参照はできない
 - 写した 3 つの中身が同一であることを確かめる検査を置き、release skill の手順で必ず実行する。repo 内の symlink で共有できるか（`gh skill publish`・`npx skills`・`apm` が実体として梱包するか）を先に確かめ、できるなら複製と検査の代わりに symlink を使う
-- `context-and-handover`・`briefing` は Herdr 1 のコマンド（`herdr pane read`・`herdr agent rename`・`herdr agent prompt hub`・SendMessage）を含むので写さず、hc 向けに書き直す。規律の文は元の文を下敷きにしてよい。`herdr-hub` 側は変えない（設計者の判断）
+- `context-and-handover`・`briefing` は旧来の `herdr` のコマンド（`herdr pane read`・`herdr agent rename`・`herdr agent prompt hub`・SendMessage）を含むので写さず、hc 向けに書き直す。規律の文は元の文を下敷きにしてよい。`herdr-hub` 側は変えない（設計者の判断）
 - `transports`・`messaging`・`startup`・`failure-modes`・`roster` も hc 向けに書き直す
-- **書き直すときの原則**: 書き直す references（`context-and-handover`・`briefing`・`messaging`・`startup`・`failure-modes`・`roster`）に含まれる規律のうち、バックエンドに依存しないものはすべて引き継ぐ。差し替えるのは Herdr 1 の仕組みに依存する部分（コマンド、pane・session、transport）だけ。例: go・承認は報告された版（sha256 の先頭 12 桁）にだけ掛かる、送信ごとの通し番号と総通数、訂正の 1 行目に前便が生きているかを書く、着地後は送らない、review 担当への差分（SHA での pin・期待値の事前登録など）、報告の作法（数値は実行出力の逐語）、worker の文脈の観測と `handoff_at` での交代、恒久性クラス、共有メモリの writer は hub 単独
-- builder は計画の最初の成果物として、これら 6 つの references の規律を「そのまま引き継ぐ / hc 向けに変える / 捨てる（理由）」の 3 つに分けた対応表を作る。「捨てる」は Herdr 1 の仕組みそのものに限り、規律を黙って落とさない
-- worker の文脈の観測は、Herdr 1 の `pane read` の代わりに `hc read` で画面を外から読む
+- **書き直すときの原則**: 書き直す references（`context-and-handover`・`briefing`・`messaging`・`startup`・`failure-modes`・`roster`）に含まれる規律のうち、バックエンドに依存しないものはすべて引き継ぐ。差し替えるのは旧来の `herdr` の仕組みに依存する部分（コマンド、pane・session、transport）だけ。例: go・承認は報告された版（sha256 の先頭 12 桁）にだけ掛かる、送信ごとの通し番号と総通数、訂正の 1 行目に前便が生きているかを書く、着地後は送らない、review 担当への差分（SHA での pin・期待値の事前登録など）、報告の作法（数値は実行出力の逐語）、worker の文脈の観測と `handoff_at` での交代、恒久性クラス、共有メモリの writer は hub 単独
+- builder は計画の最初の成果物として、これら 6 つの references の規律を「そのまま引き継ぐ / hc 向けに変える / 捨てる（理由）」の 3 つに分けた対応表を作る。「捨てる」は旧来の `herdr` の仕組みそのものに限り、規律を黙って落とさない
+- worker の文脈の観測は、旧来の `herdr` の `pane read` の代わりに `hc read` で画面を外から読む
 - release skill に「公式 `herdr-core` skill の最新コミットを確認する」項目を足す
 
 ### 4.9 文書
 
-- README に `hc-hub` の節（要件・インストール・Herdr 1 版との違い）を足す。長く走らせる hub には自動 compact の設定を推奨する、と一行書く
+- README に `hc-hub` の節（要件・インストール・旧来の `herdr` 版との違い）を足す。長く走らせる hub には自動 compact の設定を推奨する、と一行書く
 - CHANGELOG がある場合は更新する
 - この repo の追跡ファイル・コミットに、運用元の業務プロジェクトの名前を出さない（開発者の指示）
 - ライセンスは MIT のまま（開発者の決定で保留）

@@ -57,7 +57,7 @@ def test_discipline_map_rows_are_placed() -> None:
             assert row["検査語"] in body, row["ID"]
 
 
-def test_no_herdr1_commands_in_hc_hub() -> None:
+def test_no_legacy_herdr_commands_in_hc_hub() -> None:
     for f in SKILL_DIR.rglob("*.md"):
         if f.name in SHARED:
             continue

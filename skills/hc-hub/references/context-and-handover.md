@@ -11,7 +11,7 @@ hc-hub guard --op read <t>
 hc read <t>
 ```
 
-- **Devin CLI**: footer に使用率が常時描画される（`Context: 127k / 262k tokens (48%)`、2026-09-13 に Herdr 1 の実機で確認）。`hc read` でも同じ値が読める前提だが、hc の上では未再測定
+- **Devin CLI**: footer に使用率が常時描画される（`Context: 127k / 262k tokens (48%)`、2026-09-13 に旧来の `herdr` の実機で確認）。`hc read` でも同じ値が読める前提だが、hc の上では未再測定
 - **Claude Code と Codex**: 常時表示が無い・読めないときの代替は、クライアント側の slash コマンド（Claude の `/context`、Codex の `/status`）を打ち込んで描画を読むこと。モデルの文脈を消費しない。読み終えたら `hc keys <t> esc` で閉じる。ターンの途中には打ち込まず、idle のときだけ使う。hc の上では未測定で、この版で確かめたエージェントは Claude Code だけ（Codex は測っていない）
 - それでも取れないエージェントは**オンデマンド申告のみ**。⛔ 定期申告は禁止（往復自体が文脈を消費し、欄は捏造を招いた実績がある）。訊くときは hub が名指しし、実測値の行ごと貼らせる
 
