@@ -22,6 +22,7 @@ PROBE_PATH = {probe_path!r}
 WAIT_OVERRIDE = json.loads({wait_override!r})
 READ_OVERRIDE = {read_override!r}
 RM_FAILS = {rm_fails!r}
+RUN_RESPONSE = {run_response!r}
 ARGS = sys.argv[1:]
 
 if len(ARGS) == 3 and ARGS[0] == "get" and ARGS[2] == "--json" and ARGS[1] in TERMINALS:
@@ -36,8 +37,16 @@ elif ARGS and ARGS[0] == "run":
     with (DIR / "run.log").open("a") as f:
         f.write(" ".join(ARGS[1:]) + "\\n")
     i = ARGS.index("--")
-    (DIR / "script.sh").write_text(ARGS[i + 3])
-    print(json.dumps({{"address": "t90", "agent": "sh"}}))
+    if ARGS[i + 1 : i + 3] == ["sh", "-c"]:
+        (DIR / "script.sh").write_text(ARGS[i + 3])
+    if RUN_RESPONSE is not None:
+        print(RUN_RESPONSE)
+    else:
+        print(json.dumps({{"address": "t90", "agent": "sh"}}))
+elif ARGS and ARGS[0] == "kill":
+    with (DIR / "kill.log").open("a") as f:
+        f.write(" ".join(ARGS[1:]) + "\\n")
+    print("{{}}")
 elif ARGS and ARGS[0] == "wait":
     default = {{"ended": True, "exit_code": 0, "reason": "exit", "signal": None}}
     print(json.dumps(WAIT_OVERRIDE if WAIT_OVERRIDE is not None else default))
@@ -75,6 +84,7 @@ def make_fake_hc(  # noqa: PLR0913
     wait_override: dict[str, Any] | None = None,
     read_override: str | None = None,
     rm_fails: bool = False,
+    run_response: str | None = None,
 ) -> Path:
     script = tmp_path / "fake-hc"
     script.write_text(
@@ -87,6 +97,66 @@ def make_fake_hc(  # noqa: PLR0913
             wait_override=json.dumps(wait_override),
             read_override=read_override,
             rm_fails=rm_fails,
+            run_response=run_response,
+        )
+    )
+    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    return script
+
+
+_HERDR_APP_TEMPLATE = """#!{python}
+import json
+import sys
+from pathlib import Path
+
+PAYLOADS = json.loads({payloads!r})
+DIR = Path({directory!r})
+RENAME_FAILS = {rename_fails!r}
+ARGS = sys.argv[1:]
+
+if ARGS == ["ls"]:
+    counter = DIR / "herdr-ls.count"
+    n = int(counter.read_text()) if counter.exists() else 0
+    counter.write_text(str(n + 1))
+    print(json.dumps(PAYLOADS[min(n, len(PAYLOADS) - 1)]))
+elif ARGS[:2] == ["do", "tab.rename"]:
+    with (DIR / "rename.log").open("a") as f:
+        f.write(" ".join(ARGS[2:]) + "\\n")
+    if RENAME_FAILS:
+        print("rename failed", file=sys.stderr)
+        sys.exit(1)
+    print("{{}}")
+else:
+    print("fake herdr-app: " + " ".join(ARGS), file=sys.stderr)
+    sys.exit(3)
+"""
+
+
+def herdr_ls(*tabs: tuple[str, list[str]]) -> dict[str, Any]:
+    return {
+        "recent": [],
+        "spaces": [
+            {
+                "id": "sp1",
+                "tabs": [
+                    {"id": tab_id, "terminals": [{"terminal": t} for t in terms]}
+                    for tab_id, terms in tabs
+                ],
+            }
+        ],
+    }
+
+
+def make_fake_herdr_app(
+    tmp_path: Path, payloads: list[dict[str, Any]], *, rename_fails: bool = False
+) -> Path:
+    script = tmp_path / "fake-herdr-app"
+    script.write_text(
+        _HERDR_APP_TEMPLATE.format(
+            python=sys.executable,
+            payloads=json.dumps(payloads),
+            directory=str(tmp_path),
+            rename_fails=rename_fails,
         )
     )
     script.chmod(script.stat().st_mode | stat.S_IXUSR)

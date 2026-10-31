@@ -371,3 +371,50 @@ def test_cli_append_rejects_empty_template(tmp_path: Path) -> None:
     assert "--template" in p.stderr
     assert p.returncode == 2
     assert not (tmp_path / "ledger.jsonl").exists()
+
+
+def _list(roster: Path) -> list[dict[str, object]]:
+    p = run_cli("ledger", "list", "--roster", str(roster))
+    assert p.returncode == 0, p.stderr
+    events: list[dict[str, object]] = json.loads(p.stdout)
+    return events
+
+
+def test_cli_append_resolve_fills_preset_command(tmp_path: Path) -> None:
+    roster = _roster(tmp_path)
+    p = _append_cli(
+        roster, HUB_LABELS, {"--command-json": None, "--preset": "impl"}, "--resolve"
+    )
+    assert p.returncode == 0, p.stderr
+    assert _list(roster)[0]["command"] == ["claude"]
+
+
+def test_cli_append_resolve_fills_resident_command(tmp_path: Path) -> None:
+    roster = tmp_path / ".hc-hub.yml"
+    cfg = {
+        "ledger": "ledger.jsonl",
+        "defaults": {"approval": "auto"},
+        "lanes": {"be": {"agents": {"be-rev": {"role": "r", "command": ["codex"]}}}},
+    }
+    roster.write_text(yaml.safe_dump(cfg, allow_unicode=True))
+    p = _append_cli(
+        roster, HUB_LABELS, {"--command-json": None, "--name": "be-rev"}, "--resolve"
+    )
+    assert p.returncode == 0, p.stderr
+    event = _list(roster)[0]
+    assert event["command"] == ["codex"]
+    assert event["preset"] is None
+
+
+def test_cli_append_resolve_rejects_unknown_resident(tmp_path: Path) -> None:
+    roster = _roster(tmp_path)
+    p = _append_cli(roster, HUB_LABELS, {"--command-json": None}, "--resolve")
+    assert p.returncode == 2
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
+def test_cli_append_resolve_conflicts_with_command_json(tmp_path: Path) -> None:
+    roster = _roster(tmp_path)
+    p = _append_cli(roster, HUB_LABELS, {"--preset": "impl"}, "--resolve")
+    assert p.returncode == 2
+    assert not (tmp_path / "ledger.jsonl").exists()

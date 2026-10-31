@@ -176,10 +176,10 @@ hc-hub init --lane <L> --approval auto|manual \
 | `hc-hub init --lane <L> --approval auto\|manual --preset … --role … [--abs-path <preset 名> …]` | 選ばれた内容から `.hc-hub.yml` を新規に書く |
 | `hc-hub resolve --lane <L> --hub` | hub の解決結果を JSON で出す。`--preset <p>`（動的な worker）、`--agent <名>`（常駐 agent）も同様 |
 | `hc-hub residents --lane <L>` | レーンの常駐 agent 名を JSON 配列で出す |
-| `hc-hub ledger append --lane <L> --name <名> --address <t> --event spawn\|stop\|adopt --hub <hub のアドレス> [--preset …] [--command-json …] [--template …] [--brief …] [--hc <hc のパス>]` | 台帳へ 1 行追記する。自分が `<L>` の hub（`hc get` の自分のラベルが `hc-hub.lane=<L>` かつ `hc-hub.role=hub`）でなければエラー |
+| `hc-hub ledger append --lane <L> --name <名> --address <t> --event spawn\|stop\|adopt --hub <hub のアドレス> [--preset …] [--command-json … \| --template … \| --resolve] [--brief …] [--hc <hc のパス>]` | 台帳へ 1 行追記する。`--resolve` は `command`・`template` を roster から解決する（`--preset` が無ければ `--name` を常駐 agent として）。自分が `<L>` の hub（`hc get` の自分のラベルが `hc-hub.lane=<L>` かつ `hc-hub.role=hub`）でなければエラー |
 | `hc-hub ledger list [--lane <L>]` | 台帳を JSON 配列で出す。`--lane` で絞れる。ファイルがまだ無ければ空 |
 
-起動・ガードの `hc-hub start`・`spawn-argv`・`guard`・`space`・`preflight` は [lanes.md](lanes.md) と [startup.md](startup.md)。
+起動・ガードの `hc-hub start`・`spawn`・`spawn-argv`・`guard`・`space`・`preflight` は [lanes.md](lanes.md) と [startup.md](startup.md)。
 
 ## 台帳（ledger）
 

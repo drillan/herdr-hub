@@ -108,7 +108,7 @@ roster は編成の意図（desired state）で、`lanes.<名>.agents` は空で
 ## §3 起動と寿命
 
 - **起動前に棚卸しする。** §5 の最後の項目のとおり idle を棚卸しする。独立した仕事を 1 人に積まない
-- **起動は `hc-hub spawn-argv` を単独で打って終了コードを確かめ、0 のときだけ出力をそのまま `hc` に渡す。** worktree を `--cwd` に渡す（[references/worktrees.md](references/worktrees.md)）。最初の依頼は `hc run` に渡す。台帳に spawn を記録するのは、依頼が届いたと確認できてから
+- **起動は `hc-hub spawn` で行う。** `hc run` を打ち、address を読み、配置が `tab` なら tab に名前を付けるところまでを CLI が担う（途中で失敗したら、起こした worker を片付けてからエラーで止まる）。worktree を `--cwd` に渡す（[references/worktrees.md](references/worktrees.md)）。最初の依頼は `hc run` に渡す。台帳に spawn を記録するのは、依頼が届いたと確認できてから（`hc-hub ledger append … --resolve` で、`command` を roster から解決して記録する）
 - 起動後は `hc wait <t> --timeout 60` で待つ。timeout で返り、`hc get --json` の `.status.state` が `null` なら `hc read` で画面を読む（信頼確認のダイアログが出ることがある。出ないこともある）。信頼の確認に hub が答えてよいのは、hub 自身が worker のために作った worktree のフォルダーだけで、それ以外は人に上げる。ダイアログも無く状態も報告されないときは、間を置いた複数回の観測で結論を出し（1 回の観測で決めない）、報告しなければ人に知らせて止まる
 - roster の `command` は hc の core の PATH から見つかる必要がある。見つからないと `hc run` が `spawn_failed: cannot start` で失敗する（[roster.md](references/roster.md)）
 - **監視は `hc wait --children any`。** 1 分ごとの見回りは作らない。状態の知らせで返ったときだけ `hc ls` と `hc get` で全 worker の状態を取り直す（`reason: timeout` は待ち直すだけ）

@@ -10,6 +10,7 @@ import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NoReturn
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -66,6 +67,7 @@ from hc_hub_lib.roster import (
 from hc_hub_lib.spawn import (
     SpawnError,
     ensure_state_dir,
+    name_tab,
     require_lane_hub,
     spawn_argv,
     start_hub,
@@ -124,17 +126,23 @@ def add_hc_subcommands(
     _add_hc(start)
     start.add_argument("--lane", required=True)
 
-    spawn = sub.add_parser("spawn-argv", help="worker の hc run 引数を JSON で出す")
-    _add_roster(spawn)
-    _add_hc(spawn)
-    spawn.add_argument("--lane", required=True)
-    who = spawn.add_mutually_exclusive_group(required=True)
-    who.add_argument("--preset")
-    who.add_argument("--agent")
-    spawn.add_argument("--name", required=True)
-    spawn.add_argument("--task", required=True)
-    spawn.add_argument("--brief")
-    spawn.add_argument("--cwd", type=Path, required=True)
+    for command, help_text in (
+        ("spawn-argv", "worker の hc run 引数を JSON で出す"),
+        ("spawn", "worker を起こし、tab に名前を付ける"),
+    ):
+        spawn = sub.add_parser(command, help=help_text)
+        _add_roster(spawn)
+        _add_hc(spawn)
+        spawn.add_argument("--lane", required=True)
+        who = spawn.add_mutually_exclusive_group(required=True)
+        who.add_argument("--preset")
+        who.add_argument("--agent")
+        spawn.add_argument("--name", required=True)
+        spawn.add_argument("--task", required=True)
+        spawn.add_argument("--brief")
+        spawn.add_argument("--cwd", type=Path, required=True)
+        if command == "spawn":
+            spawn.add_argument("--herdr-app", default="herdr-app")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -169,8 +177,11 @@ def build_parser() -> argparse.ArgumentParser:
         append.add_argument(f"--{flag}", required=True)
     append.add_argument("--event", required=True, choices=EVENTS)
     append.add_argument("--preset")
-    append.add_argument("--command-json")
-    append.add_argument("--template")
+    how = append.add_mutually_exclusive_group()
+    how.add_argument("--command-json")
+    how.add_argument("--template")
+    # --preset があれば preset、無ければ --name を常駐 agent として roster から解決する
+    how.add_argument("--resolve", action="store_true")
     append.add_argument("--brief")
     listing = ledger_sub.add_parser("list", help="台帳を JSON 配列で出す")
     add_roster(listing)
@@ -224,6 +235,13 @@ def run_ledger(args: argparse.Namespace) -> None:
         raise RosterError(msg)
     _check_append_args(args, roster)
     command = _parse_command_json(args.command_json)
+    template = args.template
+    if args.resolve:
+        if args.preset is not None:
+            resolved = resolve_worker(roster, args.lane, args.preset)
+        else:
+            resolved = resolve_resident(roster, args.lane, args.name)
+        command, template = resolved.command, resolved.template
     # 他レーンの台帳記録を防ぐため、自分がそのレーンの hub であることを確かめる
     me = terminal_id(os.environ)
     require_lane_hub(get_labels(args.hc, me), args.lane)
@@ -241,7 +259,7 @@ def run_ledger(args: argparse.Namespace) -> None:
             hub=args.hub,
             preset=args.preset,
             command=command,
-            template=args.template,
+            template=template,
             brief=args.brief,
         ),
     )
@@ -277,7 +295,7 @@ def run_start(args: argparse.Namespace, me: str) -> None:
     run_hc(args.hc, ["label", me, *labels])
 
 
-def run_spawn_argv(args: argparse.Namespace, me: str) -> None:
+def _spawn_target(args: argparse.Namespace, me: str) -> tuple[Resolved, list[str]]:
     roster = load_roster(args.roster)
     if args.preset is not None:
         resolved = resolve_worker(roster, args.lane, args.preset)
@@ -295,7 +313,62 @@ def run_spawn_argv(args: argparse.Namespace, me: str) -> None:
         role=role,
         cwd=args.cwd,
     )
+    return resolved, argv
+
+
+def run_spawn_argv(args: argparse.Namespace, me: str) -> None:
+    _, argv = _spawn_target(args, me)
     print(json.dumps(argv, ensure_ascii=False))
+
+
+def _discard_worker(hc: str, address: str, cause: Exception) -> NoReturn:
+    # 記録の無い worker を残さない。CLI が自分で起こした端末なので CLI が片付ける
+    try:
+        run_hc(hc, ["kill", address])
+        run_hc(hc, ["rm", address])
+    except HcError as e:
+        msg = (
+            f"{cause}。起こした worker {address} を片付けられなかった（{e}）。"
+            f"hc kill {address} と hc rm {address} で片付ける"
+        )
+        raise SpawnError(msg) from cause
+    msg = f"{cause}。起こした worker {address} は片付けた"
+    raise SpawnError(msg) from cause
+
+
+def run_spawn(args: argparse.Namespace, me: str) -> None:
+    resolved, argv = _spawn_target(args, me)
+    out = run_hc(args.hc, argv)
+    leftover = (
+        f"（名前 {args.name} の端末が残っているかもしれない。hc ls で探して片付ける）"
+    )
+    try:
+        response = json.loads(out)
+    except json.JSONDecodeError as e:
+        msg = f"hc run の応答が JSON ではない: {e}{leftover}"
+        raise SpawnError(msg) from e
+    address = response.get("address") if isinstance(response, dict) else None
+    if not isinstance(address, str) or not address:
+        msg = f"hc run の応答に address が無い: {out.strip()}{leftover}"
+        raise SpawnError(msg)
+    tab = None
+    if resolved.placement == "tab":
+        try:
+            tab = name_tab(args.herdr_app, address, args.name)
+        except (HcError, SpawnError) as e:
+            _discard_worker(args.hc, address, e)
+    print(
+        json.dumps(
+            {
+                "address": address,
+                "name": args.name,
+                "tab": tab,
+                "command": None if resolved.command is None else list(resolved.command),
+                "template": resolved.template,
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 def run_detect(args: argparse.Namespace, me: str) -> None:
@@ -394,6 +467,8 @@ def run_hc_commands(args: argparse.Namespace) -> None:
         run_init(args, me)
     elif args.command == "start":
         run_start(args, me)
+    elif args.command == "spawn":
+        run_spawn(args, me)
     else:
         run_spawn_argv(args, me)
 
@@ -408,6 +483,7 @@ def run(args: argparse.Namespace) -> None:
         "preflight",
         "start",
         "spawn-argv",
+        "spawn",
         "detect",
         "init",
     ):

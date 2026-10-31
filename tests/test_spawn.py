@@ -1,9 +1,10 @@
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 import yaml
-from fake_hc import make_fake_hc, run_cli
+from fake_hc import herdr_ls, make_fake_hc, make_fake_herdr_app, run_cli
 from hc_hub_lib.guard import GuardError
 from hc_hub_lib.roster import (
     Resolved,
@@ -12,7 +13,7 @@ from hc_hub_lib.roster import (
     resolve_resident,
     resolve_worker,
 )
-from hc_hub_lib.spawn import SpawnError, spawn_argv, start_hub
+from hc_hub_lib.spawn import SpawnError, find_tab, spawn_argv, start_hub
 
 L = "hc-hub.lane"
 R = "hc-hub.role"
@@ -536,3 +537,121 @@ def test_cli_spawn_argv_refuses_non_hub_self(tmp_path: Path, roster_path: Path) 
     )  # fmt: skip
     assert p.returncode == 2
     assert p.stdout == ""
+
+
+def test_find_tab_returns_tab_holding_address() -> None:
+    payload = herdr_ls(("tA", ["t5"]), ("tB", ["t90", "t91"]))
+    assert find_tab(payload, "t90") == "tB"
+    assert find_tab(payload, "t99") is None
+
+
+def test_find_tab_rejects_address_in_two_tabs() -> None:
+    with pytest.raises(SpawnError, match="2 つ以上"):
+        find_tab(herdr_ls(("tA", ["t90"]), ("tB", ["t90"])), "t90")
+
+
+def test_find_tab_rejects_malformed_payload() -> None:
+    with pytest.raises(SpawnError, match="spaces"):
+        find_tab({"spaces": "x"}, "t90")
+
+
+def _spawn_cli(  # noqa: PLR0913
+    tmp_path: Path,
+    roster_path: Path,
+    *args: str,
+    labels: dict[str, str] | None = None,
+    herdr: list[dict[str, object]] | None = None,
+    rename_fails: bool = False,
+    run_response: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    hc = make_fake_hc(
+        tmp_path,
+        {"t5": {"labels": SELF if labels is None else labels}},
+        [],
+        run_response=run_response,
+    )
+    app = make_fake_herdr_app(
+        tmp_path,
+        herdr if herdr is not None else [herdr_ls(("tA", ["t5"]), ("tB", ["t90"]))],
+        rename_fails=rename_fails,
+    )
+    return run_cli(
+        "spawn", "--roster", str(roster_path), "--lane", "be",
+        "--name", "be-impl-01", "--cwd", str(tmp_path), "--task", "依頼です",
+        "--hc", str(hc), "--herdr-app", str(app), *args,
+        env_extra={"HC_TERMINAL_ID": "t5"},
+    )  # fmt: skip
+
+
+def test_cli_spawn_runs_hc_and_renames_tab(tmp_path: Path, roster_path: Path) -> None:
+    later = [
+        herdr_ls(("tA", ["t5"])),
+        herdr_ls(("tA", ["t5"]), ("tB", ["t90"])),
+    ]
+    p = _spawn_cli(tmp_path, roster_path, "--preset", "impl", herdr=later)
+    assert p.returncode == 0, p.stderr
+    assert json.loads(p.stdout) == {
+        "address": "t90",
+        "name": "be-impl-01",
+        "tab": "tB",
+        "command": ["claude"],
+        "template": None,
+    }
+    run_log = (tmp_path / "run.log").read_text()
+    assert "--outlive-parent" in run_log
+    assert "-- claude 依頼です" in run_log
+    assert (tmp_path / "rename.log").read_text() == "--id tB --name be-impl-01\n"
+
+
+def test_cli_spawn_hidden_does_not_touch_tabs(
+    tmp_path: Path, roster_path: Path
+) -> None:
+    p = _spawn_cli(tmp_path, roster_path, "--preset", "quiet")
+    assert p.returncode == 0, p.stderr
+    assert json.loads(p.stdout)["tab"] is None
+    assert not (tmp_path / "herdr-ls.count").exists()
+    assert not (tmp_path / "rename.log").exists()
+
+
+def test_cli_spawn_template_reports_template(tmp_path: Path, roster_path: Path) -> None:
+    p = _spawn_cli(tmp_path, roster_path, "--preset", "advisor")
+    assert p.returncode == 0, p.stderr
+    out = json.loads(p.stdout)
+    assert out["command"] is None
+    assert out["template"] == "advisor"
+
+
+def test_cli_spawn_cleans_up_when_tab_never_appears(
+    tmp_path: Path, roster_path: Path
+) -> None:
+    p = _spawn_cli(
+        tmp_path, roster_path, "--preset", "impl", herdr=[herdr_ls(("tA", ["t5"]))]
+    )
+    assert p.returncode == 2
+    assert "t90" in p.stderr
+    assert (tmp_path / "kill.log").read_text() == "t90\n"
+    assert (tmp_path / "rm.log").read_text() == "t90\n"
+
+
+def test_cli_spawn_cleans_up_when_rename_fails(
+    tmp_path: Path, roster_path: Path
+) -> None:
+    p = _spawn_cli(tmp_path, roster_path, "--preset", "impl", rename_fails=True)
+    assert p.returncode == 2
+    assert (tmp_path / "kill.log").read_text() == "t90\n"
+    assert (tmp_path / "rm.log").read_text() == "t90\n"
+
+
+def test_cli_spawn_names_worker_when_response_has_no_address(
+    tmp_path: Path, roster_path: Path
+) -> None:
+    p = _spawn_cli(tmp_path, roster_path, "--preset", "impl", run_response="{}")
+    assert p.returncode == 2
+    assert "be-impl-01" in p.stderr
+    assert not (tmp_path / "rename.log").exists()
+
+
+def test_cli_spawn_refuses_non_hub(tmp_path: Path, roster_path: Path) -> None:
+    p = _spawn_cli(tmp_path, roster_path, "--preset", "impl", labels={})
+    assert p.returncode == 2
+    assert not (tmp_path / "run.log").exists()

@@ -29,9 +29,21 @@ hub は人の承認を求めずに worker を起こす。そのぶん、起こ�
 
 ## 起動
 
-起動は `hc-hub spawn-argv` の出力をそのまま `hc` に渡す。`--outlive-parent`・`hc-hub.lane`・`hc-hub.role`・`hc-hub.brief` のラベル・`herdr.space` は CLI が組み立てる。手で `hc run` を組まない。
+起動は `hc-hub spawn` で行う。`--outlive-parent`・`hc-hub.lane`・`hc-hub.role`・`hc-hub.brief` のラベル・`herdr.space` は CLI が組み立てる。手で `hc run` を組まない。
 
-手順は 2 段で、段の間で終了コードを確かめる。`spawn-argv` をパイプやプロセス置換の中に入れると、失敗の終了コードが捨てられ、空の引数で `hc` を打つことになる。
+```bash
+hc-hub spawn --lane <L> --preset <preset> --name <名前> --cwd <worktree の絶対パス> \
+  --task "<最初の依頼>" [--brief <依頼ファイルのパス>]
+```
+
+- `spawn` は、`spawn-argv` と同じ引数で argv を組み、シェルを通さずに `hc run` を打つ。応答の `address` を読み、配置が `tab` なら worker の tab に名前を付ける（下の「配置」）。出力は JSON 1 行で、`address`・`name`・`tab`（`hidden` なら `null`）・`command`・`template`
+- 終了コードが 0 でなければ起こせていない。`hc run` のあとに失敗したとき（応答が読めない・tab が見つからない・名前を付けられない）は、`spawn` が起こした worker を `hc kill` → `hc rm` で片付けてからエラーで止まる。片付けにも失敗したら、アドレスと片付けのコマンドをエラーに書くので、その worker を片付けて人に上げる。応答から address が読めなかったときは、名前を手がかりに `hc ls` で探して片付ける
+- `spawn` は台帳に書かず、起動後の確認もしない。下の「起動後の確認」と「依頼が届いた後」は hub が行う
+- 依頼が `-` で始まるときは `--task="<最初の依頼>"` の形で渡す（`--task "-x"` はオプションと読まれて止まる）
+
+### `spawn-argv` で組むとき
+
+`hc-hub spawn-argv` は、`spawn` が打つ `hc` の引数を JSON の配列で出すだけで、`hc` を打たない。`spawn` を使えない事情があるときだけ、次の 2 段で使う。段の間で終了コードを確かめる。`spawn-argv` をパイプやプロセス置換の中に入れると、失敗の終了コードが捨てられ、空の引数で `hc` を打つことになる。
 
 1. `spawn-argv` を単独で打ち、結果をファイルに受ける。終了コードが 0 でなければ、ここで止まる（理由は標準エラーに出る。ファイルは使わない）。`.hc-hub/` は台帳と同じく roster のディレクトリにある非追跡の置き場（hub の cwd に依らない）。`hc-hub start` が作るので、台帳がまだ空の最初の起動でもある。依頼が `-` で始まるときは `--task="<最初の依頼>"` の形で渡す（`--task "-x"` はオプションと読まれて止まる）
 
@@ -51,8 +63,8 @@ hub は人の承認を求めずに worker を起こす。そのぶん、起こ�
 
    **`xargs` は `hc` の終了コードを書き換える**（GNU xargs の仕様: `hc` が 1〜125 で終わると 123、255 だと 124）。そのため `exit 9` のような `hc` の終了コードの値では分岐できない。失敗の理由は `hc` が出す標準エラーで読む。それで足りなければ `hc get` などで状態を取り直す。
 
-- `spawn-argv` は `hc` に続く引数を JSON の配列で出す。要素の順序も中身も変えずに渡す
-- 自分のレーンの hub でない端末（`hc-hub start` を打っていない、role が `hub` でない、別レーンのラベルを持つ）で打つと、`spawn-argv` はエラーで止まる
+- `spawn-argv` は `hc` に続く引数を JSON の配列で出す。要素の順序も中身も変えずに渡す。この経路では tab の名前付け（下の「配置」）も hub が手で行う
+- 自分のレーンの hub でない端末（`hc-hub start` を打っていない、role が `hub` でない、別レーンのラベルを持つ）で打つと、`spawn` も `spawn-argv` もエラーで止まる
 - preset ではなく常駐 agent を起こすときは `--preset <preset>` の代わりに `--agent <エントリ名>`（常駐 agent の名前の一覧は `hc-hub residents --lane <L>`）
 - エージェントの指定は `command`（argv の配列）か `template`（hc の template 名）のどちらか一方。引数とオプションの正典はインストール済みバイナリの `hc run --help`
 - エージェント固有の引数（必須の起動引数など）は command の argv に入れる（[agents.md](agents.md)）
@@ -73,7 +85,7 @@ workspace の新設は人間が明示した場合だけ（hc に workspace は�
 - worker は hub と同じ space に新しい tab として出る（その tab に worker のターミナルが 1 つだけ入る。実測）
 - hub に `herdr.space` ラベルが無いのに `tab` が解決された場合は、黙って `hidden` にせずエラーで止まる
 - worker が増えると tab も人の画面に増える。worker の数だけ増えることを briefing で人に伝える
-- tab の名前は worker の名前にする。人数が増えても視認性が劣化せず、サイドバーで役割が読める。起動後に tab id を引いて付ける。**`tab.rename` は省かない必須の手順**（下の実測のとおり、省くと tab の見分けがつかなくなる）
+- tab の名前は worker の名前にする。人数が増えても視認性が劣化せず、サイドバーで役割が読める。起動後に tab id を引いて付ける。**`tab.rename` は省かない必須の手順**（下の実測のとおり、省くと tab の見分けがつかなくなる）。`hc-hub spawn` はこれを自分で行う（起こした直後は `herdr-app ls` に出ないことがあるので、0.5 秒おきに最大 10 回引き直す）。`spawn-argv` で起こしたときだけ、次を手で打つ
 
 ```bash
 herdr-app ls                                                  # ターミナル id から tab id を引く
@@ -121,10 +133,10 @@ herdr-app do tab.rename --id <tab id> --name <worker の名前>
 
    ```bash
    hc-hub ledger append --lane <L> --name <名前> --address <t> --hub "$HC_TERMINAL_ID" \
-     --event spawn --preset <preset> --command-json '<解決済みの command の JSON 配列>' [--brief <依頼ファイルのパス>]
+     --event spawn --preset <preset> --resolve [--brief <依頼ファイルのパス>]
    ```
 
-   `--command-json` に渡すのは、台帳に記録する解決済みの `command`（`hc-hub resolve --lane <L> --preset <preset>` の出力の `command`）を JSON の配列にしたもので、`spawn-argv` の出力（`hc run` の引数）ではない。`template` で起こしたときは `--command-json` の代わりに `--template <名前>`。**記録に失敗したら、起こした worker を片付けて人に上げる。** 片付けは `hc-hub guard --op kill <t>` → `hc kill <t>`、`hc-hub guard --op rm <t>` → `hc rm <t>` の順で、guard を省かない。 台帳に無い worker は誰にも見えないまま残る
+   `--resolve` は、記録する `command`（または `template`）を roster から解決する。`--preset` があれば preset を、無ければ `--name` を常駐 agent のエントリ名として解決する。手で写す形（`--command-json`・`--template`）も残っていて、`--resolve` とは同時に使えない。`--command-json` に渡すのは、台帳に記録する解決済みの `command`（`hc-hub resolve --lane <L> --preset <preset>` の出力の `command`）を JSON の配列にしたもので、`spawn-argv` の出力（`hc run` の引数）ではない。`template` で起こしたときは `--command-json` の代わりに `--template <名前>`。**記録に失敗したら、起こした worker を片付けて人に上げる。** 片付けは `hc-hub guard --op kill <t>` → `hc kill <t>`、`hc-hub guard --op rm <t>` → `hc rm <t>` の順で、guard を省かない。 台帳に無い worker は誰にも見えないまま残る
 2. briefing を渡す（[briefing.md](briefing.md)）。briefing は最初の依頼に含めて渡すのが基本で、hub のアドレスを必ず書く。補う分は `hc send`。briefing は hub が書く。人間に書かせない。稼働途中の追加なら「現在の状態」入りの 8 ブロック版を使う
 3. 以後の監視と後始末は [messaging.md](messaging.md)
 

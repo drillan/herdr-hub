@@ -114,7 +114,10 @@ def test_relative_links_resolve() -> None:
 
 def test_startup_uses_spawn_argv_and_records_after_delivery() -> None:
     t = (REFS / "startup.md").read_text()
+    assert "hc-hub spawn --lane" in t
     assert "hc-hub spawn-argv" in t
+    assert t.index("hc-hub spawn --lane") < t.index("hc-hub spawn-argv --lane")
+    assert "--resolve" in t
     assert "--no-notify" not in t.replace("`--no-notify` を付けない", "")
     assert t.index("ledger append") > t.index("届いた")
 

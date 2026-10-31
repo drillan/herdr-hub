@@ -21,7 +21,7 @@
 | copilot | `copilot` | 未測定 | 未測定 |
 | pi | `pi` | 未測定 | 未測定 |
 
-- `hc-hub spawn-argv` は、最初の依頼を argv の末尾に足す。「最初の依頼の渡し方」が未測定のエージェントは、この形で依頼が届くかが分からない
+- `hc-hub spawn`（と `spawn-argv`）は、最初の依頼を argv の末尾に足す。「最初の依頼の渡し方」が未測定のエージェントは、この形で依頼が届くかが分からない
 - 未測定のエージェントも選べる。ただし `detect` の出力と、hub が人に示す提案に、どの列が未測定かを明示する
 - 注記: opencode は位置引数がディレクトリと解釈される。Devin は `--permission-mode` を省くと、書き込みと `hc send` のたびに承認待ち（`blocked`）で止まる。Codex の `--no-daemon` は hc の手引き（`hc --skill`）による
 

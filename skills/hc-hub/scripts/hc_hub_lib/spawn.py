@@ -1,11 +1,16 @@
+import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from hc_hub_lib.guard import HUB_ROLE, LANE, ROLE, check_placement_tab
+from hc_hub_lib.hc_client import hc_json, run_hc
 from hc_hub_lib.roster import NAME_PATTERN, Resolved, Roster, RosterError
 
 STATE_DIR = ".hc-hub"
+# 起こした直後の worker は herdr-app ls にまだ出ないことがある。値は観察からの見積もり
+TAB_LOOKUP_TRIES = 10
+TAB_LOOKUP_INTERVAL_SECONDS = 0.5
 
 
 class SpawnError(Exception):
@@ -112,4 +117,41 @@ def spawn_argv(  # noqa: PLR0913, PLR0917
     if resolved.template is not None:
         return [*argv, "--", resolved.template, task]
     msg = "起動方法（command も template）が無い"
+    raise SpawnError(msg)
+
+
+def _items(value: object, where: str) -> list[Mapping[str, Any]]:
+    if not isinstance(value, list) or not all(isinstance(v, dict) for v in value):
+        msg = f"herdr-app ls の {where} がオブジェクトの配列ではない"
+        raise SpawnError(msg)
+    return value
+
+
+def find_tab(payload: Mapping[str, Any], address: str) -> str | None:
+    hits: list[str] = []
+    for space in _items(payload.get("spaces"), "spaces"):
+        for tab in _items(space.get("tabs"), "tabs"):
+            terminals = _items(tab.get("terminals"), "terminals")
+            if any(t.get("terminal") == address for t in terminals):
+                tab_id = tab.get("id")
+                if not isinstance(tab_id, str) or not tab_id:
+                    msg = f"herdr-app ls の tab に文字列の id が無い: {tab!r}"
+                    raise SpawnError(msg)
+                hits.append(tab_id)
+    if len(hits) > 1:
+        msg = f"{address} を含む tab が 2 つ以上ある: {hits}"
+        raise SpawnError(msg)
+    return hits[0] if hits else None
+
+
+def name_tab(herdr_app: str, address: str, name: str) -> str:
+    for attempt in range(TAB_LOOKUP_TRIES):
+        tab = find_tab(hc_json(herdr_app, ["ls"]), address)
+        if tab is not None:
+            run_hc(herdr_app, ["do", "tab.rename", "--id", tab, "--name", name])
+            return tab
+        if attempt + 1 < TAB_LOOKUP_TRIES:
+            time.sleep(TAB_LOOKUP_INTERVAL_SECONDS)
+    waited = TAB_LOOKUP_TRIES * TAB_LOOKUP_INTERVAL_SECONDS
+    msg = f"herdr-app ls に {address} を含む tab が {waited:g} 秒待っても出ない"
     raise SpawnError(msg)

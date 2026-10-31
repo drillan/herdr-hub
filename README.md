@@ -235,7 +235,7 @@ hub は `hc wait --children any` で長く待つため、context が膨らむと
 skills/hc-hub/                             # herdr-core 向けの hub runbook（同梱 CLI つき）
   SKILL.md                                # skill 入口
   references/                             # 12 ファイル（lanes・approvals・agents・roster・startup 等）
-  scripts/hc-hub                          # 同梱 CLI（preflight・validate・start・spawn-argv・guard・ledger 等）
+  scripts/hc-hub                          # 同梱 CLI（preflight・validate・start・spawn・spawn-argv・guard・ledger 等）
   scripts/hc_hub_lib/                     # CLI の実装
   .hc-hub.yml.example                     # roster YAML テンプレート
 examples/hc-hub-demo/                      # hc-hub の試運転用サンプル（roster・rules・小さな Python パッケージ）

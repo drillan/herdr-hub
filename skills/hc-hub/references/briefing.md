@@ -4,7 +4,7 @@ worker が受け取る唯一の作法書は briefing である。skill を読む
 
 ## 渡し方
 
-- briefing は最初の依頼として `hc run` に渡す（`hc-hub spawn-argv … --task`）。長いときは briefing をファイルに書く。長文はファイルに書いてパスを送る（サイズやバーストの超過で拒否されうる）。`--task` には、そのファイルの絶対パスと hub のアドレスを書き、同じパスを `--brief` でラベル（`hc-hub.brief`）に残す
+- briefing は最初の依頼として `hc run` に渡す（`hc-hub spawn … --task`）。長いときは briefing をファイルに書く。長文はファイルに書いてパスを送る（サイズやバーストの超過で拒否されうる）。`--task` には、そのファイルの絶対パスと hub のアドレスを書き、同じパスを `--brief` でラベル（`hc-hub.brief`）に残す
 - **command で起こした worker には、`<hc from=… reach=…>` のタグも `first_message` も付かない（実測）。** 報告の宛先（`hc send <hub のアドレス> …`）はタグから得られないので、**briefing に hub のアドレスを自分で必ず書く。** 書き忘れると worker は報告の宛先を持たない
 - 届いたかは `hc get` の状態が `working` になる・ターンが進むことで確認する（[startup.md](startup.md)）
 - 手での hub の交代では、後任が引き継いだ worker の全員に、自分のアドレスを新しい返信先として `hc send` で知らせる。briefing に書かれた hub のアドレスは前任のままのため
