@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 from hc_hub_lib.guard import LANE, ROLE, check_placement_tab
@@ -38,7 +39,14 @@ def spawn_argv(  # noqa: PLR0913, PLR0917
     brief: str | None,
     *,
     role: str,
+    cwd: Path,
 ) -> list[str]:
+    if not cwd.is_absolute():
+        msg = f"cwd {str(cwd)!r} は絶対パスでなければならない"
+        raise SpawnError(msg)
+    if not cwd.is_dir():
+        msg = f"cwd {str(cwd)!r} は存在するディレクトリでない"
+        raise SpawnError(msg)
     if not NAME_PATTERN.fullmatch(name):
         msg = f"名前 {name!r} は不正。1〜32 文字の a-z 0-9 - _ に限る"
         raise SpawnError(msg)
@@ -52,6 +60,8 @@ def spawn_argv(  # noqa: PLR0913, PLR0917
         "--outlive-parent",
         "--name",
         name,
+        "--cwd",
+        str(cwd),
         "--label",
         f"{LANE}={lane}",
         "--label",

@@ -88,6 +88,7 @@ def add_hc_subcommands(
     spawn.add_argument("--name", required=True)
     spawn.add_argument("--task", required=True)
     spawn.add_argument("--brief")
+    spawn.add_argument("--cwd", type=Path, required=True)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -218,6 +219,7 @@ def run_spawn_argv(args: argparse.Namespace, me: str) -> None:
         get_labels(args.hc, me),
         args.brief,
         role=role,
+        cwd=args.cwd,
     )
     print(json.dumps(argv, ensure_ascii=False))
 

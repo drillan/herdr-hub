@@ -17,6 +17,7 @@ from hc_hub_lib.spawn import SpawnError, spawn_argv, start_hub
 L = "hc-hub.lane"
 R = "hc-hub.role"
 SELF = {L: "be", R: "hub", "herdr.space": "sp1"}
+CWD = Path(__file__).resolve().parent
 
 
 def write_roster(directory: Path) -> Path:
@@ -75,7 +76,14 @@ def test_start_hub_unknown_lane(roster_path: Path) -> None:
 
 def test_spawn_argv_tab_adds_space_not_tab(roster_path: Path) -> None:
     a = spawn_argv(
-        worker(roster_path, "impl"), "be", "be-impl-1", "do x", SELF, None, role="impl"
+        worker(roster_path, "impl"),
+        "be",
+        "be-impl-1",
+        "do x",
+        SELF,
+        None,
+        role="impl",
+        cwd=CWD,
     )
     assert a[:6] == [
         "run",
@@ -95,7 +103,14 @@ def test_spawn_argv_tab_adds_space_not_tab(roster_path: Path) -> None:
 
 def test_spawn_argv_hidden_has_no_herdr_labels(roster_path: Path) -> None:
     a = spawn_argv(
-        worker(roster_path, "quiet"), "be", "be-q-1", "x", SELF, None, role="quiet"
+        worker(roster_path, "quiet"),
+        "be",
+        "be-q-1",
+        "x",
+        SELF,
+        None,
+        role="quiet",
+        cwd=CWD,
     )
     assert not any(x.startswith("herdr.") for x in a)
     assert a[-4:] == ["--", "claude", "--x", "x"]
@@ -103,7 +118,14 @@ def test_spawn_argv_hidden_has_no_herdr_labels(roster_path: Path) -> None:
 
 def test_spawn_argv_brief_label(roster_path: Path) -> None:
     a = spawn_argv(
-        worker(roster_path, "impl"), "be", "be-impl-1", "x", SELF, "t/b.md", role="impl"
+        worker(roster_path, "impl"),
+        "be",
+        "be-impl-1",
+        "x",
+        SELF,
+        "t/b.md",
+        role="impl",
+        cwd=CWD,
     )
     assert "hc-hub.brief=t/b.md" in a
 
@@ -117,6 +139,7 @@ def test_spawn_argv_template_has_no_separator(roster_path: Path) -> None:
         SELF,
         None,
         role="advisor",
+        cwd=CWD,
     )
     assert a[-2:] == ["advisor", "ask"]
     assert "--" not in a
@@ -132,20 +155,30 @@ def test_spawn_argv_tab_without_space_refuses(roster_path: Path) -> None:
             {L: "be", R: "hub"},
             None,
             role="impl",
+            cwd=CWD,
         )
 
 
 @pytest.mark.parametrize("bad", ["Be Impl", "", "a" * 33, "x/y"])
 def test_spawn_argv_bad_name(roster_path: Path, bad: str) -> None:
     with pytest.raises(SpawnError):
-        spawn_argv(worker(roster_path, "impl"), "be", bad, "x", SELF, None, role="impl")
+        spawn_argv(
+            worker(roster_path, "impl"),
+            "be",
+            bad,
+            "x",
+            SELF,
+            None,
+            role="impl",
+            cwd=CWD,
+        )
 
 
 def test_spawn_argv_resident_without_preset_uses_entry_name_as_role(
     roster_path: Path,
 ) -> None:
     res = resolve_resident(load_roster(roster_path), "be", "be-rev")
-    a = spawn_argv(res, "be", "be-rev", "x", SELF, None, role="be-rev")
+    a = spawn_argv(res, "be", "be-rev", "x", SELF, None, role="be-rev", cwd=CWD)
     assert "hc-hub.role=be-rev" in a
 
 
@@ -161,7 +194,7 @@ def test_spawn_argv_resident_with_preset_uses_entry_name_as_role(
     path = tmp_path / ".hc-hub.yml"
     path.write_text(yaml.safe_dump(cfg))
     res = resolve_resident(load_roster(path), "be", "be-main")
-    a = spawn_argv(res, "be", "be-main", "x", SELF, None, role="be-main")
+    a = spawn_argv(res, "be", "be-main", "x", SELF, None, role="be-main", cwd=CWD)
     assert "hc-hub.role=be-main" in a
     assert "hc-hub.role=impl" not in a
 
@@ -221,6 +254,8 @@ def test_cli_spawn_argv_prints_json_array(tmp_path: Path, roster_path: Path) -> 
         "do x",
         "--brief",
         "t/b.md",
+        "--cwd",
+        str(CWD),
         "--hc",
         str(hc),
         env_extra={"HC_TERMINAL_ID": "t5"},
@@ -248,6 +283,8 @@ def test_cli_spawn_argv_agent_role_is_entry_name(
         "be-rev",
         "--task",
         "x",
+        "--cwd",
+        str(CWD),
         "--hc",
         str(hc),
         env_extra={"HC_TERMINAL_ID": "t5"},
@@ -260,7 +297,14 @@ def test_cli_spawn_argv_agent_role_is_entry_name(
 def test_spawn_argv_bad_role(roster_path: Path, bad: str) -> None:
     with pytest.raises(SpawnError, match="role"):
         spawn_argv(
-            worker(roster_path, "impl"), "be", "be-impl-1", "x", SELF, None, role=bad
+            worker(roster_path, "impl"),
+            "be",
+            "be-impl-1",
+            "x",
+            SELF,
+            None,
+            role=bad,
+            cwd=CWD,
         )
 
 
@@ -281,3 +325,94 @@ def test_cli_start_ls_row_without_address_is_error(
     assert p.returncode == 2
     assert "address" in p.stderr
     assert "Traceback" not in p.stderr
+
+
+def test_spawn_argv_emits_cwd_before_command(roster_path: Path) -> None:
+    a = spawn_argv(
+        worker(roster_path, "impl"),
+        "be",
+        "be-impl-1",
+        "x",
+        SELF,
+        None,
+        role="impl",
+        cwd=CWD,
+    )
+    i = a.index("--cwd")
+    assert a[i + 1] == str(CWD)
+    assert i < a.index("--")
+
+
+def test_spawn_argv_relative_cwd_refuses(roster_path: Path) -> None:
+    with pytest.raises(SpawnError, match="絶対"):
+        spawn_argv(
+            worker(roster_path, "impl"),
+            "be",
+            "be-impl-1",
+            "x",
+            SELF,
+            None,
+            role="impl",
+            cwd=Path("rel/dir"),
+        )
+
+
+def test_spawn_argv_missing_cwd_refuses(roster_path: Path, tmp_path: Path) -> None:
+    with pytest.raises(SpawnError, match="存在"):
+        spawn_argv(
+            worker(roster_path, "impl"),
+            "be",
+            "be-impl-1",
+            "x",
+            SELF,
+            None,
+            role="impl",
+            cwd=tmp_path / "nope",
+        )
+
+
+def test_cli_spawn_argv_requires_cwd(tmp_path: Path, roster_path: Path) -> None:
+    hc = make_fake_hc(tmp_path, {"t5": {"labels": SELF}}, [])
+    p = run_cli(
+        "spawn-argv",
+        "--roster",
+        str(roster_path),
+        "--lane",
+        "be",
+        "--preset",
+        "impl",
+        "--name",
+        "be-impl-1",
+        "--task",
+        "x",
+        "--hc",
+        str(hc),
+        env_extra={"HC_TERMINAL_ID": "t5"},
+    )
+    assert p.returncode != 0
+    assert "--cwd" in p.stderr
+
+
+def test_cli_spawn_argv_passes_cwd(tmp_path: Path, roster_path: Path) -> None:
+    hc = make_fake_hc(tmp_path, {"t5": {"labels": SELF}}, [])
+    p = run_cli(
+        "spawn-argv",
+        "--roster",
+        str(roster_path),
+        "--lane",
+        "be",
+        "--preset",
+        "impl",
+        "--name",
+        "be-impl-1",
+        "--task",
+        "x",
+        "--cwd",
+        str(tmp_path),
+        "--hc",
+        str(hc),
+        env_extra={"HC_TERMINAL_ID": "t5"},
+    )
+    assert p.returncode == 0, p.stderr
+    argv = json.loads(p.stdout)
+    assert argv[argv.index("--cwd") + 1] == str(tmp_path)

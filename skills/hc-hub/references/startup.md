@@ -33,7 +33,7 @@ hub は人の承認を求めずに worker を起こす。そのぶん、起こ�
 
 ```bash
 readarray -d '' -t ARGV < <(
-  hc-hub spawn-argv --lane <L> --preset <preset> --name <名前> \
+  hc-hub spawn-argv --lane <L> --preset <preset> --name <名前> --cwd <worktree の絶対パス> \
     --task "<最初の依頼>" [--brief <依頼ファイルのパス>] | jq -j '.[] + "\u0000"'
 )
 hc "${ARGV[@]}"
@@ -45,7 +45,7 @@ hc "${ARGV[@]}"
 - エージェント固有の引数（必須の起動引数など）は command の argv に入れる（[agents.md](agents.md)）
 - 最初の依頼は hc run に渡す（`--task`）。起動中のエージェントへ後から送ると落ちうるため
 - `hc run` の応答（`--json`）の `address` を新しい worker のアドレスとして読む。サイドバーの並びから推測しない
-- `--no-notify` を付けない。親への自動通知（`<hc>` のタグ）を、blocked などの知らせの経路に使うため
+- `--no-notify` を付けない。`hc run --help` では「Don't type notes about it into its parent」で、付けると親へ知らせが届かなくなる。親への自動通知（`<hc>` のタグ）を、blocked などの知らせの経路に使う
 
 workspace や worktree の新設は人間が明示した場合だけ。hc に workspace は無く、worktree の新設は [worktrees.md](worktrees.md) の規約に従う。
 
@@ -77,14 +77,14 @@ herdr-app do tab.rename --id <tab id> --name <worker の名前>
 
 - 新しいアドレスは `hc run` の応答から読む（並びから推測しない。上の「起動」）
 - 人のフォーカスを奪わない（`spawn-argv` の出力は `--bg` を含む。フォーカスを奪わない状態を保つ）
-- 作業ディレクトリは `hc run` で --cwd を明示する。呼び出し側の cwd を暗黙に引き継がない。ただし現行の `spawn-argv` の出力は `--cwd` を含まず、`hc run` の cwd の既定は本書では未測定。別ディレクトリで動かす worker を起こす前に、この点を人に確認する
+- 作業ディレクトリは `hc run` で --cwd を明示する。呼び出し側の cwd を暗黙に引き継がない。`hc run` は --cwd が無いと hc を実行した場所を使う（`hc run --help`: "Working directory (default: where hc runs …)"）ので、`hc-hub spawn-argv` は `--cwd DIR` を必須にしている（絶対パスで実在するディレクトリでなければエラー。現在のディレクトリを暗黙には使わない）。worker の worktree は hub が [worktrees.md](worktrees.md) に従って作る・選び、その絶対パスを `--cwd` に渡す
 
 ## 起動後の確認
 
 起動後は次の順に確認する。省略しない。
 
 1. **状態の報告があるか。** `hc get <t>` で `state` を見る。状態の報告が無いエージェントは、承認待ちに気づけない。人に知らせて止まる（[agents.md](agents.md)）
-2. **状態が `null` のままなら `hc read` で画面を読む。** 起動後に状態が `null` のまま動かないのは、未信頼の cwd での信頼の確認ダイアログなど、状態を報告しない画面で止まっている兆候（実測: ダイアログ中は状態を報告せず、`blocked` の通知も来ず、`hc wait` は返らなかった）。読んで画面に従い、[approvals.md](approvals.md) の表に従って答える
+2. **状態が `null` のままなら `hc read` で画面を読む。** 起動後に状態が `null` のまま動かないのは、未信頼の cwd での信頼の確認ダイアログなど、状態を報告しない画面で止まっている兆候（実測: ダイアログ中は状態を報告せず、`blocked` の通知も来ず、`hc wait` は返らなかった）。worktree の cwd も未信頼でありうるので、起動直後の確認では毎回これを疑う。読んで画面に従い、[approvals.md](approvals.md) の表に従って答える
 3. **依頼が届いたか。** `first_message.sent` は template で起動したときにしか返らない。command 起動ではタグも `first_message` も付かない（実測）。そこで、`hc get` の状態が `working` になる、またはターン（`turn`）が進むことで、依頼を受け取ったと判断する
 
 ### 届いていなければ送り直す
