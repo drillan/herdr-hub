@@ -177,14 +177,16 @@ Herdr 2（herdr-core、CLI は `hc`）の上で、**レーンごとの hub** が
 - 前提は `HERDR_ENV=1` ではなく `HC_TERMINAL_ID`。操作は `herdr` ではなく `hc` で行う
 - roster は `.hc-hub.yml`。**レーン**（`lanes:`）ごとに hub と worker を束ね、台帳（`ledger`）に起動・停止を追記する。`kind` と `transport` は廃止し、起動方法は `command` か `template`、通信は `hc send` に一本化した
 - 操作の前に `hc-hub guard` でレーンのラベルを検査し、他レーンの端末を触らない
-- 承認待ちには `approval: auto | manual` の範囲で hub が答える（分類器・hook・人の承認が要るルールは人へ上げる）
+- 承認待ちには `approval: auto | manual` の範囲で hub が答える（分類器・hook・人の承認が要るルールは人へ上げる）。フォルダの信頼の確認に hub が答えるのは、hub 自身が worker のために作った worktree だけで、それ以外は人へ上げる
+- worker は hub と同じ space に 1 人 1 tab で出る。hub は tab の名前を worker の名前に付け替える（名前の無い tab は並び順の番号で、新しい tab が差し込まれると番号がずれる）
 - ガード・検証・台帳・起動引数の組み立ては、skill 同梱の CLI `scripts/hc-hub`（Python、`uv run --script <skill のディレクトリ>/scripts/hc-hub` で実行）が担う。文書中の `hc-hub <サブコマンド>` はこの呼び出しを指す
 
 ### 要件
 
 - **herdr-core**（`hc` が PATH にあり、hub が `HC_TERMINAL_ID` を持つ端末の中で動くこと）
 - **`uv`**（同梱 CLI `hc-hub` の実行に使う）
-- 確かめたエージェントは Claude Code だけ。Codex は測っていない
+- 確かめたエージェントは Claude Code と opencode（対話の画面。最初の依頼は `--prompt` で渡す）。Codex は測っていない
+- roster の `command` は、hc の core の PATH から見つかること。core の PATH はユーザーのシェルの PATH と違うことがあり、見つからないと `hc run` が `spawn_failed` で失敗する。core の PATH にあるディレクトリに置くか、core の PATH にディレクトリを足す
 
 ### インストール
 
@@ -211,6 +213,10 @@ lanes:
 
 hub にするエージェントで skill を呼び出すと、最初に `hc-hub preflight` で前提を検査し、`hc-hub validate` → `hc-hub start --lane <レーン名>` で hub になる。スキーマの詳細は [roster.md](skills/hc-hub/references/roster.md)。
 
+### 試運転のサンプル
+
+[examples/hc-hub-demo/](examples/hc-hub-demo/README.md) は、hc-hub を実機で一通り動かすための小さなプロジェクト。レーン `demo` の hub が worktree を作って worker（Claude）に関数を 1 つ実装させ、reviewer（opencode）にレビューさせる。台帳や argv は `examples/hc-hub-demo/.hc-hub/`（git の管理外）に置かれる。前提と流れは同ディレクトリの README を参照。
+
 ### 長く走らせる hub には自動 compact を設定する
 
 hub は `hc wait --children any` で長く待つため、context が膨らむと途中で自動 compact が走りうる。長く走らせる hub のエージェントには、自動 compact の設定（Claude Code なら有効化と閾値）を推奨する。hub が落ちても worker は `--outlive-parent` で続くが、hub の交代は人が手で行う（[context-and-handover.md](skills/hc-hub/references/context-and-handover.md)）。
@@ -230,6 +236,8 @@ skills/hc-hub/                             # Herdr 2 向けの hub runbook（同
   scripts/hc-hub                          # 同梱 CLI（preflight・validate・start・spawn-argv・guard・ledger 等）
   scripts/hc_hub_lib/                     # CLI の実装
   .hc-hub.yml.example                     # roster YAML テンプレート
+examples/hc-hub-demo/                      # hc-hub の試運転用サンプル（roster・rules・小さな Python パッケージ）
+tests/                                    # hc-hub の CLI と文書のテスト（uv run pytest）
 skills/herdr-session/                      # agent 名の capture/restore（HERDR_ENV=1 の pane 内で実行）
   SKILL.md                                # 使い方・照合ルール・制限
   scripts/herdr-session                   # capture / restore / status（bash+jq）
@@ -251,6 +259,9 @@ docs/superpowers/
   specs/2026-09-21-roster-desired-state-design.md  # roster 改訂 spec（desired state・rules・presets・kind の正典）
   specs/2026-09-13-herdr-hub-design.md             # 初版設計 spec（roster 周りは上の改訂版が正典）
   plans/2026-09-13-herdr-hub.md                    # 実装計画
+  specs/2026-10-31-hc-hub-design.md                # hc-hub の設計 spec
+  plans/2026-10-31-hc-hub.md                       # hc-hub の実装計画
+  notes/2026-10-31-hc-hub-*.md                     # hc-hub の実測と、herdr-hub から移した規律の対応表
 ```
 
 ## 仕様・計画
@@ -258,3 +269,5 @@ docs/superpowers/
 - roster 改訂 spec（正典）: [docs/superpowers/specs/2026-09-21-roster-desired-state-design.md](docs/superpowers/specs/2026-09-21-roster-desired-state-design.md)
 - 初版設計 spec: [docs/superpowers/specs/2026-09-13-herdr-hub-design.md](docs/superpowers/specs/2026-09-13-herdr-hub-design.md)（roster 周りは改訂版が正典）
 - 実装計画: [docs/superpowers/plans/2026-09-13-herdr-hub.md](docs/superpowers/plans/2026-09-13-herdr-hub.md)
+- hc-hub の設計 spec: [docs/superpowers/specs/2026-10-31-hc-hub-design.md](docs/superpowers/specs/2026-10-31-hc-hub-design.md)
+- hc-hub の実装計画: [docs/superpowers/plans/2026-10-31-hc-hub.md](docs/superpowers/plans/2026-10-31-hc-hub.md)
