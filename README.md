@@ -198,7 +198,7 @@ gh skill install drillan/herdr-hub hc-hub
 
 ### `.hc-hub.yml` の作り方
 
-作業対象 repo の最上位で、hub にするエージェントから `hc-hub detect` で既知のエージェント（claude・opencode・devin・codex・copilot・pi）が hc の端末の中で起動できるかを調べる（書き込みはしない）。選べるのは判定が `available` のものだけで、`shell_only`・`shell_alias`・`missing` は `fix` に従って直してから選ぶ。人がレーン名・approval・preset ごとのエージェントと役割を選び、`hc-hub init --lane <レーン名> --approval auto|manual --preset <preset 名>=<エージェント名> --role <preset 名>=<役割>` で `.hc-hub.yml` を書く。`init` は台帳の置き場を `.gitignore` に足すが commit はしないので、`.gitignore` と `.hc-hub.yml` を commit する。
+作業対象 repo の最上位で、hub にするエージェントから `hc-hub detect` で既知のエージェント（claude・opencode・devin・codex・copilot・pi）が hc の端末の中で起動できるかを調べる（書き込みはしない）。選べるのは判定が `available` のものだけで、`shell_only`・`shell_alias`・`missing` は `fix` に従って直してから選ぶ。人がレーン名・approval・preset ごとのエージェントと役割を選び、`hc-hub init --lane <レーン名> --approval auto|manual --preset <preset 名>=<エージェント名> --role <preset 名>=<役割>` で `.hc-hub.yml` を書く。`init` は台帳の置き場を `.gitignore` に足す（追跡された `.gitignore` ですでに無視されていれば足さない）が、commit はしないので、`.gitignore` と `.hc-hub.yml` を commit する。
 
 手で書くなら、[.hc-hub.yml.example](skills/hc-hub/.hc-hub.yml.example) を作業対象 repo の直下に `.hc-hub.yml` としてコピーし、パスを実在のものに直す。`ledger` と、どの段かで `approval` の指定が必須。Claude だけで編成する最小形（`init` の出力と同じ形）:
 

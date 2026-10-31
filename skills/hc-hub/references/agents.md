@@ -57,7 +57,7 @@ hc 0.1.15・Devin CLI v3000.11.234 で確かめたこと（2026-10-31。対話�
 
 - 状態を報告する（`status.app` が `devin`）。ターンを終えると `idle` から `done` に変わる
 - `hc send` で依頼が届く
-- `hc read` の画面に context の使用率が出る（例: `Context: 29k / 200k tokens (14%)`）。交代判定の観測に使える（[context-and-handover.md](context-and-handover.md)）
+- `hc read` の画面に文脈の使用率が出る（例: `Context: 29k / 200k tokens (14%)`）。交代判定の観測に使える（[context-and-handover.md](context-and-handover.md)）
 - 承認待ちの状態の報告と、答えるキーは未測定。`--permission-mode` を省いたときの挙動も未測定。最初の依頼を argv で渡せるかも未測定なので、`spawn-argv` の末尾に足す形で届くかは分からない
 
 ## Codex
