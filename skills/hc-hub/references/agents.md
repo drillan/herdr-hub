@@ -10,15 +10,15 @@
 
 ## Claude Code
 
-実測（hc 0.1.15）で確かめたこと。
+hc 0.1.15 で確かめたこと。出所が実測でないものは、行末に（hc の手引き）・（spec）と書く。
 
-- 状態（OSC 7501）を報告する。働いている間は `working`、ターンを終えると `done`
-- 質問 UI（AskUserQuestion など）で止まると `blocked` を報告し、`hc wait <t>` は `{"reason":"status","status":"blocked",…}` で返る。親でない hub の `hc wait` も返る。親には `<hc>` のタグで通知が来る
+- 状態（OSC 7501）を報告する。働いている間は `working`、ターンを終えると `done`（`working` は hc の手引き）
+- 質問 UI（AskUserQuestion など）で止まると `blocked` を報告し、`hc wait <t>` は `{"reason":"status","status":"blocked",…}` で返る。親でない hub の `hc wait` も返る。親には `<hc>` のタグで通知が来る（通知は hc の手引き）
 - `blocked` の子への `hc send <t> …` は exit 9（`kind: blocked`、`hint` は「画面を読め、または `--force`」）で拒否される
-- 答え方は、先に `hc read <t>` で画面を読み、`hc keys <t> down enter` のようにキーを押すか、`hc send --force <t> "…"` で文字を送る。押す順序は、読んだ画面の選択肢の並びで決める
+- 答え方は、先に `hc read <t>` で画面を読み、`hc keys <t> down enter` のようにキーを押すか、`hc send --force <t> "…"` で文字を送る。押す順序は、読んだ画面の選択肢の並びで決める（`hc keys` の形は hc の手引き。blocked の画面への押下は未実測）
 - plan mode の承認もこの形で答える。範囲の確認は [approvals.md](approvals.md) に従う
 - 信頼していない cwd で起こすと、起動直後に信頼の確認ダイアログ（`Is this a project you created or one you trust?`、選択肢 `No, exit` / `Yes, I trust this folder`）で止まる。このとき状態は `null` のままで、`blocked` の通知は来ず、`hc wait` も返らない。`hc read` で画面を見て初めて分かる。信頼済みの cwd で起こせば起きない。起きたら画面を読み、フォルダの信頼の確認として [approvals.md](approvals.md) の表に従って答える
-- エージェント自身の権限モードは `command` の引数（`--permission-mode` など）で選ぶ。`approval:` とは独立
+- エージェント自身の権限モードは `command` の引数（`--permission-mode` など）で選ぶ。`approval:` とは独立（spec）
 
 ## Codex
 
