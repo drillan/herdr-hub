@@ -2,7 +2,14 @@ import re
 
 from _paths import DISCIPLINE_MAP, HERDR1, REFS, SHARED, SKILL_DIR
 
-PLACED = {"references/lanes.md", "references/approvals.md", "references/agents.md"}
+PLACED = {
+    "references/lanes.md",
+    "references/approvals.md",
+    "references/agents.md",
+    "references/startup.md",
+    "references/messaging.md",
+    "references/briefing.md",
+}
 
 
 def _cells(line: str) -> list[str]:
@@ -92,3 +99,33 @@ def test_relative_links_resolve() -> None:
     for f in SKILL_DIR.rglob("*.md"):
         for link in re.findall(r"\]\(([^)#:]+\.md)\)", f.read_text()):
             assert (f.parent / link).exists(), (f, link)
+
+
+def test_startup_uses_spawn_argv_and_records_after_delivery() -> None:
+    t = (REFS / "startup.md").read_text()
+    assert "hc-hub spawn-argv" in t
+    assert "--no-notify" not in t.replace("`--no-notify` を付けない", "")
+    assert t.index("ledger append") > t.index("届いた")
+
+
+def test_startup_reads_screen_when_state_stays_null() -> None:
+    t = (REFS / "startup.md").read_text()
+    assert "null" in t
+    assert "hc read" in t
+
+
+def test_briefing_required_rules() -> None:
+    t = (REFS / "briefing.md").read_text()
+    for w in [
+        "hub のアドレス",
+        "レーンを越えない",
+        "機構的な遮断ではない",
+        "作業を進めずに待つ",
+    ]:
+        assert w in t, w
+
+
+def test_messaging_rereads_state_after_wait() -> None:
+    t = (REFS / "messaging.md").read_text()
+    for w in ["hc wait --children any", "hc ls", "hc get", "未測定"]:
+        assert w in t, w
