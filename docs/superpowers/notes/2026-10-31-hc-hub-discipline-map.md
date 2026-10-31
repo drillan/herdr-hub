@@ -3,7 +3,7 @@
 2026-10-31。spec 4.8 の対応表。書き直す 6 つの references（`context-and-handover`・`briefing`・`messaging`・`startup`・`failure-modes`・`roster`）と、それに付随する `transports` および `SKILL.md` の規律を、1 つも黙って落とさないための表。Task 5〜8 はこの表を正として書く。
 
 - `区分`: `そのまま`（規律の文をそのまま引き継ぐ）/ `変える`（規律は残し、旧来の `herdr` の仕組みに依存する部分だけを hc に差し替える）/ `捨てる`（旧来の `herdr` の仕組みそのもの。理由を書く）
-- `置き場所`: 書き直し後の `skills/hc-hub/` 内のファイル。共有の 3 references（`adjudication`・`escalation`・`worktrees`）には置かない（複製と同一性の検査で内容が固定されるため）
+- `置き場所`: 書き直し後の `skills/hc-hub/` 内のファイル。共有の 3 references（`adjudication`・`escalation`・`worktrees`）には置かない（複製と同一性の検査で内容が固定されるため。`worktrees` は 2026-10-31 に共有をやめ、hc-hub に固有の規則を持つ）
 - `検査語`: 置き場所のファイルに逐語で入れる語句（6〜20 文字）。執筆者はその行の規律を書くときにこの語句を本文に入れる
 - `出所`: `<元ファイル> / <見出し> / <太字の箇条や小見出し>`。元ファイルの略称は `SKILL`=`skills/herdr-hub/SKILL.md`、他は `skills/herdr-hub/references/<名>.md`
 

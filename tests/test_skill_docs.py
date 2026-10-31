@@ -360,3 +360,13 @@ def test_briefing_requires_evidence_for_test_discrimination_claims() -> None:
     assert "起きたことを起きた後に書く" in t
     assert "所見 0 件" in t
     assert "取り直す" in t.split("所見 0 件")[1]
+
+
+def test_worktrees_doc_places_reviewers_and_handles_missing_origin() -> None:
+    t = _ref("worktrees.md")
+    assert "git worktree add --detach" in t
+    assert "checkout --detach" in t
+    assert "origin が無い" in t
+    assert ".hc-hub/archive/<名前>/" in t
+    assert "read-only の走査・判定）— main checkout" not in t
+    assert ".hc-hub/archive/" in _ref("context-and-handover.md")
