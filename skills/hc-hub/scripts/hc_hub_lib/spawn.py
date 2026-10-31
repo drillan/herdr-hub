@@ -37,12 +37,14 @@ def spawn_argv(  # noqa: PLR0913, PLR0917
     self_labels: Mapping[str, str],
     brief: str | None,
     *,
-    role: str | None = None,
+    role: str,
 ) -> list[str]:
     if not NAME_PATTERN.fullmatch(name):
         msg = f"名前 {name!r} は不正。1〜32 文字の a-z 0-9 - _ に限る"
         raise SpawnError(msg)
-    role_label = role or resolved.preset or name
+    if not NAME_PATTERN.fullmatch(role):
+        msg = f"role {role!r} は不正。1〜32 文字の a-z 0-9 - _ に限る"
+        raise SpawnError(msg)
     argv = [
         "run",
         "--bg",
@@ -53,7 +55,7 @@ def spawn_argv(  # noqa: PLR0913, PLR0917
         "--label",
         f"{LANE}={lane}",
         "--label",
-        f"{ROLE}={role_label}",
+        f"{ROLE}={role}",
     ]
     if brief is not None:
         argv += ["--label", f"hc-hub.brief={brief}"]

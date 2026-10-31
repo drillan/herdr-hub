@@ -191,7 +191,14 @@ def run_start(args: argparse.Namespace, me: str) -> None:
     if not isinstance(rows, list):
         msg = "hc ls --json に terminals の配列が無い"
         raise HcError(msg)
-    hubs = [get_terminal(args.hc, row["address"]) for row in rows]
+    addresses = []
+    for row in rows:
+        address = row.get("address") if isinstance(row, dict) else None
+        if not isinstance(address, str):
+            msg = f"hc ls --json の行に文字列の address が無い: {row!r}"
+            raise HcError(msg)
+        addresses.append(address)
+    hubs = [get_terminal(args.hc, a) for a in addresses]
     run_hc(args.hc, ["label", me, *start_hub(roster, args.lane, me, hubs)])
 
 
@@ -199,7 +206,7 @@ def run_spawn_argv(args: argparse.Namespace, me: str) -> None:
     roster = load_roster(args.roster)
     if args.preset is not None:
         resolved = resolve_worker(roster, args.lane, args.preset)
-        role = None
+        role = args.preset
     else:
         resolved = resolve_resident(roster, args.lane, args.agent)
         role = args.agent

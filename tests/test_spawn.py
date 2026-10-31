@@ -74,7 +74,9 @@ def test_start_hub_unknown_lane(roster_path: Path) -> None:
 
 
 def test_spawn_argv_tab_adds_space_not_tab(roster_path: Path) -> None:
-    a = spawn_argv(worker(roster_path, "impl"), "be", "be-impl-1", "do x", SELF, None)
+    a = spawn_argv(
+        worker(roster_path, "impl"), "be", "be-impl-1", "do x", SELF, None, role="impl"
+    )
     assert a[:6] == [
         "run",
         "--bg",
@@ -92,18 +94,30 @@ def test_spawn_argv_tab_adds_space_not_tab(roster_path: Path) -> None:
 
 
 def test_spawn_argv_hidden_has_no_herdr_labels(roster_path: Path) -> None:
-    a = spawn_argv(worker(roster_path, "quiet"), "be", "be-q-1", "x", SELF, None)
+    a = spawn_argv(
+        worker(roster_path, "quiet"), "be", "be-q-1", "x", SELF, None, role="quiet"
+    )
     assert not any(x.startswith("herdr.") for x in a)
     assert a[-4:] == ["--", "claude", "--x", "x"]
 
 
 def test_spawn_argv_brief_label(roster_path: Path) -> None:
-    a = spawn_argv(worker(roster_path, "impl"), "be", "be-impl-1", "x", SELF, "t/b.md")
+    a = spawn_argv(
+        worker(roster_path, "impl"), "be", "be-impl-1", "x", SELF, "t/b.md", role="impl"
+    )
     assert "hc-hub.brief=t/b.md" in a
 
 
 def test_spawn_argv_template_has_no_separator(roster_path: Path) -> None:
-    a = spawn_argv(worker(roster_path, "advisor"), "be", "be-adv-1", "ask", SELF, None)
+    a = spawn_argv(
+        worker(roster_path, "advisor"),
+        "be",
+        "be-adv-1",
+        "ask",
+        SELF,
+        None,
+        role="advisor",
+    )
     assert a[-2:] == ["advisor", "ask"]
     assert "--" not in a
 
@@ -117,20 +131,21 @@ def test_spawn_argv_tab_without_space_refuses(roster_path: Path) -> None:
             "x",
             {L: "be", R: "hub"},
             None,
+            role="impl",
         )
 
 
 @pytest.mark.parametrize("bad", ["Be Impl", "", "a" * 33, "x/y"])
 def test_spawn_argv_bad_name(roster_path: Path, bad: str) -> None:
     with pytest.raises(SpawnError):
-        spawn_argv(worker(roster_path, "impl"), "be", bad, "x", SELF, None)
+        spawn_argv(worker(roster_path, "impl"), "be", bad, "x", SELF, None, role="impl")
 
 
 def test_spawn_argv_resident_without_preset_uses_entry_name_as_role(
     roster_path: Path,
 ) -> None:
     res = resolve_resident(load_roster(roster_path), "be", "be-rev")
-    a = spawn_argv(res, "be", "be-rev", "x", SELF, None)
+    a = spawn_argv(res, "be", "be-rev", "x", SELF, None, role="be-rev")
     assert "hc-hub.role=be-rev" in a
 
 
@@ -239,3 +254,30 @@ def test_cli_spawn_argv_agent_role_is_entry_name(
     )
     assert p.returncode == 0, p.stderr
     assert "hc-hub.role=be-rev" in json.loads(p.stdout)
+
+
+@pytest.mark.parametrize("bad", ["", "Bad Role", "a" * 33])
+def test_spawn_argv_bad_role(roster_path: Path, bad: str) -> None:
+    with pytest.raises(SpawnError, match="role"):
+        spawn_argv(
+            worker(roster_path, "impl"), "be", "be-impl-1", "x", SELF, None, role=bad
+        )
+
+
+def test_cli_start_ls_row_without_address_is_error(
+    tmp_path: Path, roster_path: Path
+) -> None:
+    hc = make_fake_hc(tmp_path, {}, [{"state": "live"}])
+    p = run_cli(
+        "start",
+        "--roster",
+        str(roster_path),
+        "--lane",
+        "be",
+        "--hc",
+        str(hc),
+        env_extra={"HC_TERMINAL_ID": "t5"},
+    )
+    assert p.returncode == 2
+    assert "address" in p.stderr
+    assert "Traceback" not in p.stderr
