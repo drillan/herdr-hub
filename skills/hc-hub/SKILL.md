@@ -55,7 +55,7 @@ herdr-app --skill   # 画面（tab・split）を触るときだけ
 **hc 公式の既定を、この skill は 2 点だけ上書きする。**
 
 1. 「`blocked` は人に尋ねよ、`--force` で迂回するな」 → [approvals.md](references/approvals.md) の範囲では hub が画面を読んで答える。範囲外（分類器・hook・人の承認が要るルール）は人に上げる
-2. 「子は親と一緒に終わる」 → worker は `--outlive-parent` で起こす。hub が落ちても、人が手で交代しても、作業中の worker が一緒に止まらないようにするため。起動は `hc-hub spawn-argv` が組む
+2. 「子は親と一緒に終わる」 → worker は `--outlive-parent` で起こす。hub が落ちても、人が手で交代しても、作業中の worker が一緒に止まらないようにするため。起動は `hc-hub spawn` が組んで打つ
 
 この版で確かめたエージェントは Claude Code・opencode・Devin。3 つとも、状態の報告と最初の依頼の渡し方まで測った（Devin は信頼の確認と承認待ちの画面も）。当面 worker は Claude に統一している。Codex は測っていない（[agents.md](references/agents.md)）。
 

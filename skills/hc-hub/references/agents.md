@@ -4,7 +4,7 @@
 
 ここに書くのは、エージェントごとに違うこと。入力待ちに答えるキー、`blocked` を報告するか、必須の引数。確かめたのは Claude Code・opencode・Devin（下の一覧と各節に、測った範囲を書く）。当面は worker を Claude に統一しており、Codex は測っていない。
 
-**`command` は core から見つかる必要がある。** hc の core の PATH は、hub のシェルの PATH と違うことがある（実測: `~/.opencode/bin` の opencode は hub のシェルから見えたが、core からは見えなかった）。core から見つからないと `hc run` が `spawn_failed: cannot start "<コマンド>"` で失敗する。`hc-hub validate` と `hc-hub spawn-argv` はこの不一致を検出できない。直し方は 2 つ。roster の `command` の先頭を絶対パスにするか、core の PATH にそのディレクトリを入れる（[failure-modes.md](failure-modes.md)）。roster を `init` で作るなら、`--abs-path <preset 名>` が絶対パスを書き、その絶対パスで起動できるかも確かめる（[roster.md](roster.md)）。`#!/usr/bin/env node` のようなスクリプトは、絶対パスにしてもインタープリターが core の PATH に要る
+**`command` は core から見つかる必要がある。** hc の core の PATH は、hub のシェルの PATH と違うことがある（実測: `~/.opencode/bin` の opencode は hub のシェルから見えたが、core からは見えなかった）。core から見つからないと `hc run` が `spawn_failed: cannot start "<コマンド>"` で失敗する。`hc-hub validate` と `hc-hub spawn-argv` はこの不一致を検出できない（`hc-hub spawn` は、`hc run` の失敗を終了コード 2 のエラーで返す）。直し方は 2 つ。roster の `command` の先頭を絶対パスにするか、core の PATH にそのディレクトリを入れる（[failure-modes.md](failure-modes.md)）。roster を `init` で作るなら、`--abs-path <preset 名>` が絶対パスを書き、その絶対パスで起動できるかも確かめる（[roster.md](roster.md)）。`#!/usr/bin/env node` のようなスクリプトは、絶対パスにしてもインタープリターが core の PATH に要る
 
 **`status` はオブジェクト。** `hc get --json` の `status` は `{"app":…,"msg":…,"state":"working"}` の形で、状態は `.status.state` で読む。`turn` は最初のターンが終わるまで 0 で、それが正常。状態を報告しない（`.status` が `null`）という結論は、待ってから 1 回見た値では出さず、間を置いた複数回の観測で出す（試運転では、60 秒待った後の 1 回の観測で「報告しない」と誤判定した）。
 
