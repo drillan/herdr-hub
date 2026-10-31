@@ -15,3 +15,6 @@
 
 .venv/
 __pycache__/
+
+# hc-hub の試運転の実行時の状態
+examples/hc-hub-demo/.hc-hub/

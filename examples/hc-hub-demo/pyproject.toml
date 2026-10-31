@@ -1,0 +1,13 @@
+[project]
+name = "textkit"
+version = "0.0.0"
+description = "hc-hub の試運転用の小さなサンプル（配布物ではない）"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

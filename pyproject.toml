@@ -10,6 +10,8 @@ dev = ["pytest", "pyyaml", "types-PyYAML", "ruff", "mypy"]
 
 [tool.pytest.ini_options]
 pythonpath = ["skills/hc-hub/scripts", "tests"]
+# examples/ の試運転用プロジェクトは自分の pyproject でテストする
+testpaths = ["tests"]
 
 [tool.ruff]
 # Markdown 内のコード片は計画・skill 文書の一部で、整形すると文書の差分になるため対象にしない
@@ -32,7 +34,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = [
+"{tests,examples/*/tests}/**" = [
   "INP001",  # tests は pythonpath 指定で import する。パッケージにしない
   "S101",    # pytest は assert を使う
   "S603",    # CLI を subprocess で実行して検証する

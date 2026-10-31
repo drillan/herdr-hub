@@ -1,0 +1,15 @@
+# hc-hub の試運転用 roster。パスはこのファイルのあるディレクトリが基準
+presets:
+  impl:     { role: 実装,   command: [claude],              rules: [rules/worker.md] }
+  # opencode の対話の画面は、最初の依頼を --prompt で受ける（位置引数はディレクトリと解釈される）
+  reviewer: { role: review, command: [opencode, --prompt], rules: [rules/reviewer.md] }
+
+defaults:
+  approval: manual
+  placement: tab
+
+ledger: .hc-hub/ledger.jsonl
+
+lanes:
+  demo:
+    agents: {}
