@@ -7,3 +7,8 @@
 .claude/skills/
 .codex/skills/
 .devin/skills/
+
+# 作業用の git worktree
+.worktrees/
+# subagent-driven-development の作業領域
+.superpowers/
