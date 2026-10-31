@@ -144,7 +144,7 @@ roster は 2 通りで作れる。`hc-hub init` で雛形を書くか、テン�
 | `shell_alias` | 端末の中で見つからず、対話シェルの出力が絶対パスでない（alias・関数・組み込み） | 選べない。実体の実行ファイルを core の PATH に置く |
 | `missing` | どちらでも見つからない | 選べない |
 
-出力は、エージェントごとの名前・判定・`shell_output`・起動の `argv`・測定の状態（`status_report`・`first_task`）・`note`・`fix` と、使ったログインシェルのパス `login_shell`。判定できないとき（対話シェルが sh 系でない、打ち切り、既知の名前の欠け）は、判定せずエラーで止まる。
+出力は、エージェントごとの名前・判定・`shell_output`・起動の `argv`・測定の状態（`status_report`・`first_task`）・`note`・`fix` と、使ったログインシェルのパス `login_shell`。判定できないとき（対話シェルが sh 系でない、打ち切り、既知の名前の欠け）は、判定せずエラーで止まる。 対話シェルは標準入力を `/dev/null` にし、制御端末から切り離して動かす（rc の問いかけで止まらず、打ち切りでも端末を壊さない）。
 
 **`hc-hub init`** は、人が選んだ内容をすべて引数で受け取る。既定値は持たない。
 
@@ -156,12 +156,12 @@ hc-hub init --lane <L> --approval auto|manual \
 
 - 値は最初の `=` で分けるので、役割に `=`・空白・日本語を含められる。`--preset` と `--role` は preset ごとに 1 つずつ必要で、同じ preset 名の重複と空の役割はエラー。同じエージェントを複数の preset に割り当ててよい
 - エージェント名は既知の一覧にあるものだけ。選ばれたエージェントが hc の端末の中で見つかるかを、`init` が改めて確かめる（`detect` を飛ばした場合への備え）
-- `.hc-hub.yml` は新規に作る。既にあれば上書きせずエラーで止まる。書く前に、書き出す内容を `validate` と同じ検査にかけ、通らなければ何も書かない
+- `.hc-hub.yml` は新規に作る。既にあれば上書きせずエラーで止まる。書く前に、書き出す内容を `validate` と同じ検査にかけ、通らなければ何も書かない。`.gitignore` に追記できるか（ディレクトリ・壊れたシンボリックリンク・UTF-8 でない・書き込み不可でないか）と、`.hc-hub.yml` 自体が git の除外設定で無視されていないか（無視されると worker の worktree に届かないのでエラーにする）も、書く前に確かめる。既に `.hc-hub.yml` があるときは、使い捨ての端末を起こす前に止まる。書いた後にしか分からない失敗（追記したのに `/.hc-hub/` が無視されない、など）は、`.hc-hub.yml` を書いたこと、`.gitignore` を直せば足りることをエラーに添える
 - 書く場所は cwd の `.hc-hub.yml` で、`--roster` は持たない。`command` は一覧の argv をそのまま使い、絶対パスは書かない
 
 **probe の端末。** `detect`・`init` は、起動できるかを確かめる使い捨ての端末を `hc-hub-probe-<pid>` の名前、`hc-hub.role=probe` のラベルで起こす。[lanes.md](lanes.md) の「ラベルの無い宛先は操作しない」の例外として、CLI が自分で起こしたこの端末だけは、CLI の中で `wait`・`read`・`rm` してよい。端末は成功してもエラーでも消す。hub や worker がこのラベルの端末を手で操作することはしない。
 
-**`.gitignore` と worker の worktree。** `init` は台帳の置き場 `.hc-hub/ledger.jsonl` が git の管理から外れているかを `git check-ignore` で確かめ、外れていなければ `.gitignore` に `/.hc-hub/` を追記する（追跡された `.gitignore` 以外の `info/exclude` や global の除外で無視されている場合も、clone した他の人には効かないので追記する）。`init` は commit しない。`.gitignore` と `.hc-hub.yml` を commit するよう、出力の `next` で伝える。commit されるまでは、HEAD から作る worker の worktree に `.gitignore` の行が入らない。そのあいだは、worker の worktree の側で `info/exclude` に `/.hc-hub/` を足す既存の手順が要る（[context-and-handover.md](context-and-handover.md)）。
+**`.gitignore` と worker の worktree。** `init` は台帳の置き場 `.hc-hub/ledger.jsonl` が git の管理から外れているかを `git check-ignore` で確かめ、外れていなければ `.gitignore` に `/.hc-hub/` を追記する（`.gitignore` に `/.hc-hub/` の行が既にあれば重ねて足さない。追跡された `.gitignore` 以外の `info/exclude` や global の除外で無視されている場合も、clone した他の人には効かないので追記する）。`init` は commit しない。`.gitignore` と `.hc-hub.yml` を commit するよう、出力の `next` で伝える。commit されるまでは、HEAD から作る worker の worktree に `.gitignore` の行が入らない。そのあいだは、worker の worktree の側で `info/exclude` に `/.hc-hub/` を足す既存の手順が要る（[context-and-handover.md](context-and-handover.md)）。
 
 ## `hc-hub` の使い方
 

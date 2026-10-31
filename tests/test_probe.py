@@ -1,5 +1,7 @@
+import os
 import pwd
 import stat
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -135,3 +137,42 @@ def test_login_shell_accepts_bash(monkeypatch: pytest.MonkeyPatch) -> None:
     entry = pwd.struct_passwd(("u", "x", 1, 1, "", "/home/u", "/bin/bash"))
     monkeypatch.setattr(pwd, "getpwuid", lambda _uid: entry)
     assert login_shell() == Path("/bin/bash")
+
+
+def test_probe_shell_detaches_stdin_and_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict[str, Any] = {}
+    real_run = subprocess.run
+
+    def spy(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:  # noqa: ANN401
+        seen.update(kwargs)
+        return real_run(argv, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", spy)
+    probe_shell(SH, ["pi"], _home(tmp_path))
+    assert seen["stdin"] == subprocess.DEVNULL
+    assert seen["start_new_session"] is True
+
+
+def test_probe_shell_survives_profile_output_without_newline(tmp_path: Path) -> None:
+    env = _home(tmp_path)
+    (tmp_path / ".profile").write_text("printf 'no newline'\n")
+    result = probe_shell(SH, ["claude", "pi"], env)
+    assert result == {"claude": f"{tmp_path}/my bin/claude", "pi": ""}
+
+
+def test_probe_core_names_probe_terminal_when_response_unreadable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("hc_hub_lib.probe._hc", lambda *_a: "not json")
+    with pytest.raises(ProbeError, match=f"hc-hub-probe-{os.getpid()}"):
+        probe_core("hc", ["claude"], tmp_path)
+
+
+def test_probe_core_names_probe_terminal_when_address_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("hc_hub_lib.probe._hc", lambda *_a: "{}")
+    with pytest.raises(ProbeError, match=f"hc-hub-probe-{os.getpid()}"):
+        probe_core("hc", ["claude"], tmp_path)

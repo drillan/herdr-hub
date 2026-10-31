@@ -1,3 +1,4 @@
+import os
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -84,3 +85,9 @@ def write_exclusive(path: Path, text: str) -> None:
     except OSError as e:
         msg = f"{path} を書けない: {e}"
         raise InitError(msg) from e
+
+
+def require_roster_absent(path: Path) -> None:
+    if os.path.lexists(path):
+        msg = f"{path} が既にある（壊れたシンボリックリンクを含む）。上書きしない"
+        raise InitError(msg)

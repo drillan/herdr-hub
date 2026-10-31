@@ -15,7 +15,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from hc_hub_lib.catalog import KNOWN_AGENTS, CatalogError, find_agent
 from hc_hub_lib.detect import detect_report
-from hc_hub_lib.gitignore import GitignoreError, ensure_ledger_ignored
+from hc_hub_lib.gitignore import (
+    GitignoreError,
+    append_ledger_ignore,
+    plan_ledger_ignore,
+    require_roster_not_ignored,
+)
 from hc_hub_lib.guard import GuardError, check, check_placement_tab
 from hc_hub_lib.hc_client import (
     HcError,
@@ -33,6 +38,7 @@ from hc_hub_lib.init_roster import (
     check_roster_text,
     parse_pairs,
     render_roster,
+    require_roster_absent,
     write_exclusive,
 )
 from hc_hub_lib.ledger import (
@@ -300,19 +306,31 @@ def run_init(args: argparse.Namespace, me: str) -> None:
     path = top / ROSTER_NAME
     text = render_roster(cfg)
     check_roster_text(text, path, args.lane, presets)
+    # 書く前の検査をすべて通してから書く（spec §7）。probe も端末を起こすので後ろに回す
+    require_roster_absent(path)
+    require_roster_not_ignored(top, ROSTER_NAME)
+    needs_append = plan_ledger_ignore(top)
     core = probe_core(args.hc, executables, top)
     missing = [e for e in executables if not core[e]]
     if missing:
         msg = f"hc の端末の中で見つからないエージェント: {missing}（detect で確かめる）"
         raise InitError(msg)
     write_exclusive(path, text)
-    appended = ensure_ledger_ignored(top)
+    if needs_append:
+        try:
+            append_ledger_ignore(top)
+        except GitignoreError as e:
+            msg = (
+                f"{path} は書いた。.gitignore を直せば足りる"
+                f"（init の再実行は不要）: {e}"
+            )
+            raise InitError(msg) from e
     check_presets(load_roster(path), args.lane, presets)
     print(
         json.dumps(
             {
                 "roster": str(path),
-                "gitignore_appended": appended,
+                "gitignore_appended": needs_append,
                 "next": ".gitignore と .hc-hub.yml を commit する。",
             },
             ensure_ascii=False,

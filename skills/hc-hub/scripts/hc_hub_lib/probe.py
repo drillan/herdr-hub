@@ -28,7 +28,10 @@ def _hc(hc: str, args: list[str]) -> str:
 
 
 def _hc_object(hc: str, args: list[str]) -> dict[str, object]:
-    out = _hc(hc, args)
+    return _parse_object(_hc(hc, args), args)
+
+
+def _parse_object(out: str, args: list[str]) -> dict[str, object]:
     try:
         payload = json.loads(out)
     except json.JSONDecodeError as e:
@@ -100,28 +103,36 @@ def _check_ended(hc: str, address: str) -> None:
 def probe_core(hc: str, executables: Sequence[str], cwd: Path) -> dict[str, bool]:
     names = _check_names(executables)
     nonce = secrets.token_hex(8)
-    started = _hc_object(
-        hc,
-        [
-            "run",
-            "--json",
-            "--bg",
-            "--no-parent",
-            "--name",
-            f"hc-hub-probe-{os.getpid()}",
-            "--label",
-            "hc-hub.role=probe",
-            "--cwd",
-            str(cwd),
-            "--",
-            "sh",
-            "-c",
-            _build_script(nonce, names),
-        ],
+    probe_name = f"hc-hub-probe-{os.getpid()}"
+    run_args = [
+        "run",
+        "--json",
+        "--bg",
+        "--no-parent",
+        "--name",
+        probe_name,
+        "--label",
+        "hc-hub.role=probe",
+        "--cwd",
+        str(cwd),
+        "--",
+        "sh",
+        "-c",
+        _build_script(nonce, names),
+    ]
+    run_out = _hc(hc, run_args)
+    # 応答を読めないと rm できず端末が残る。名前を添えて探せるようにする
+    leftover = (
+        f"（端末 {probe_name} が残っているかもしれない。`hc ls` で探して `hc rm` する）"
     )
+    try:
+        started = _parse_object(run_out, run_args)
+    except ProbeError as e:
+        msg = f"{e}{leftover}"
+        raise ProbeError(msg) from e
     address = started.get("address")
     if not isinstance(address, str) or not address:
-        msg = f"hc run の応答に address が無い: {started}"
+        msg = f"hc run の応答に address が無い: {started}{leftover}"
         raise ProbeError(msg)
     rm_error: ProbeError | None = None
     try:
@@ -176,7 +187,8 @@ def login_shell() -> Path:
 
 
 def _build_shell_script(nonce: str, names: Sequence[str]) -> str:
-    lines = [
+    # rc の出力が改行で終わらなくても、印の行が行頭から始まるようにする
+    lines = ["printf '\\n'"] + [
         f"printf '%s %s %s\\n' {nonce} {n} "
         f'"$(command -v {shlex.quote(n)} 2>/dev/null)"'
         for n in names
@@ -227,6 +239,9 @@ def probe_shell(
     try:
         proc = subprocess.run(  # noqa: S603
             [str(shell), "-l", "-i", "-c", script],
+            stdin=subprocess.DEVNULL,
+            # 制御端末を切り離す。打ち切りで子を殺しても前面グループを奪われない
+            start_new_session=True,
             capture_output=True,
             text=True,
             check=False,

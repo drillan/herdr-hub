@@ -161,3 +161,70 @@ def test_check_presets_rejects_unknown_preset(tmp_path: Path) -> None:
     check_presets(roster, "be", ["a"])
     with pytest.raises(RosterError):
         check_presets(roster, "be", ["nope"])
+
+
+_ARGS = (
+    "--lane", "be", "--approval", "manual",
+    "--preset", "impl=claude", "--role", "impl=実装",
+)  # fmt: skip
+
+
+def test_init_existing_roster_never_runs_probe(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    (repo / ".hc-hub.yml").symlink_to(repo / "nowhere")
+    result = _init(repo, fake, *_ARGS)
+    assert result.returncode == 2
+    assert "Traceback" not in result.stderr
+    assert not (tmp_path / "run.log").exists()
+
+
+def test_init_unwritable_gitignore_writes_nothing(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    gi = repo / ".gitignore"
+    gi.write_text("x\n")
+    gi.chmod(0o444)
+    result = _init(repo, fake, *_ARGS)
+    assert result.returncode == 2
+    assert "Traceback" not in result.stderr
+    assert not (repo / ".hc-hub.yml").exists()
+    assert gi.read_text() == "x\n"
+
+
+def test_init_directory_gitignore_writes_nothing(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    (repo / ".gitignore").mkdir()
+    result = _init(repo, fake, *_ARGS)
+    assert result.returncode == 2
+    assert not (repo / ".hc-hub.yml").exists()
+
+
+def test_init_rejects_ignored_roster_before_writing(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    (repo / ".gitignore").write_text("*.yml\n")
+    result = _init(repo, fake, *_ARGS)
+    assert result.returncode == 2
+    assert "worktree" in result.stderr
+    assert not (repo / ".hc-hub.yml").exists()
+    assert (repo / ".gitignore").read_text() == "*.yml\n"
+
+
+def test_init_post_write_failure_says_roster_was_written(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    # git は symlink の .gitignore を読まない。追記は通るが、追記後も無視されない
+    (tmp_path / "real-ignore").write_text("x\n")
+    (repo / ".gitignore").symlink_to(tmp_path / "real-ignore")
+    result = _init(repo, fake, *_ARGS)
+    assert result.returncode == 2
+    assert "Traceback" not in result.stderr
+    assert (repo / ".hc-hub.yml").exists()
+    assert "書いた" in result.stderr
+    assert "再実行は不要" in result.stderr
+
+
+def test_init_does_not_duplicate_existing_ignore_line(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    (repo / ".gitignore").write_text("/.hc-hub/\n")
+    result = _init(repo, fake, *_ARGS)
+    assert result.returncode == 0, result.stderr
+    assert (repo / ".gitignore").read_text() == "/.hc-hub/\n"
+    assert json.loads(result.stdout)["gitignore_appended"] is False
