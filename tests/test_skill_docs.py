@@ -340,3 +340,12 @@ def test_roster_doc_describes_detect_init() -> None:
     roster = _ref("roster.md")
     for word in ("shell_only", "shell_alias", "hc-hub.role=probe", "info/exclude"):
         assert word in roster, word
+
+
+def test_init_flow_states_git_prerequisite_and_abs_path() -> None:
+    skill = _skill()
+    assert "git init" in skill
+    assert "--abs-path" in skill
+    roster = _ref("roster.md")
+    for word in ("--abs-path", "absolute_paths", "別のマシンでは書き直す"):
+        assert word in roster

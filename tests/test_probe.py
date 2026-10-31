@@ -176,3 +176,21 @@ def test_probe_core_names_probe_terminal_when_address_missing(
     monkeypatch.setattr("hc_hub_lib.probe._hc", lambda *_a: "{}")
     with pytest.raises(ProbeError, match=f"hc-hub-probe-{os.getpid()}"):
         probe_core("hc", ["claude"], tmp_path)
+
+
+def test_probe_core_accepts_absolute_path(tmp_path: Path) -> None:
+    fake = _fake(tmp_path)
+    other = tmp_path / "elsewhere"
+    other.mkdir()
+    exe = other / "opencode"
+    exe.write_text("")
+    exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
+    result = probe_core(fake, [str(exe), str(other / "nope")], tmp_path)
+    assert result == {str(exe): True, str(other / "nope"): False}
+
+
+@pytest.mark.parametrize("bad", ["bin/opencode", "/a b/opencode", "/a;b"])
+def test_probe_core_rejects_relative_or_unsafe_paths(tmp_path: Path, bad: str) -> None:
+    fake = _fake(tmp_path)
+    with pytest.raises(ProbeError, match="扱えない"):
+        probe_core(fake, [bad], tmp_path)

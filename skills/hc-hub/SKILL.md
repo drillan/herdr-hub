@@ -57,20 +57,20 @@ herdr-app --skill   # 画面（tab・split）を触るときだけ
 1. 「`blocked` は人に尋ねよ、`--force` で迂回するな」 → [approvals.md](references/approvals.md) の範囲では hub が画面を読んで答える。範囲外（分類器・hook・人の承認が要るルール）は人に上げる
 2. 「子は親と一緒に終わる」 → worker は `--outlive-parent` で起こす。hub が落ちても、人が手で交代しても、作業中の worker が一緒に止まらないようにするため。起動は `hc-hub spawn-argv` が組む
 
-この版で確かめたエージェントは Claude Code・opencode・Devin。Claude Code と opencode は状態の報告と最初の依頼の渡し方まで、Devin は状態の報告まで測った。当面 worker は Claude に統一している。Codex は測っていない（[agents.md](references/agents.md)）。
+この版で確かめたエージェントは Claude Code・opencode・Devin。3 つとも、状態の報告と最初の依頼の渡し方まで測った（Devin は信頼の確認と承認待ちの画面も）。当面 worker は Claude に統一している。Codex は測っていない（[agents.md](references/agents.md)）。
 
 ## §1 roster（名簿）と hub の起動
 
 hub の起動時に roster を得る。YAML は `--roster <path>` で指定し、既定はカレントディレクトリの `.hc-hub.yml`（repo の最上位で実行する）。roster が無ければ明示エラーで止まる（台帳のパス `ledger` が必須のため、引数だけで動く形は持たない）。**レーン名は起動引数で受け取る**。省略、または roster に無いレーン名はエラー。
 
-roster が無くて止まったら、人に「init の流れで roster を作るか」を尋ねる。作るなら次の順に進む（hub が勝手に roster を書かない）。
+roster が無くて止まったら、人に「init の流れで roster を作るか」を尋ねる。作るなら次の順に進む（hub が勝手に roster を書かない）。作業対象は git リポジトリであること（`detect`・`init` は git の管理下でないとエラーで止まる。無ければ人が `git init` する。hub は勝手に作らない）。
 
 1. `hc-hub detect` で、既知のエージェントが hc の端末の中で起動できるかを調べる（書き込みはしない）
-2. 結果を人に示して提案する。選べるのは判定が `available` のものだけ。`shell_only`・`shell_alias`・`missing` は選べず、`fix` を添えて示す。状態の報告や最初の依頼の渡し方が未測定のエージェントは選べるが、どの列が未測定かを明示する
+2. 結果を人に示して提案する。選べるのは判定が `available` のものと、人が絶対パスで書くと決めた `shell_only` のもの。`shell_only` には、`fix`（core の PATH を直す）と、`--abs-path` で `shell_output` の絶対パスを書く道の両方を示す。絶対パスはそのマシンに固有なので、別のマシンでは roster を書き直すことになると伝える。`shell_alias`・`missing` は選べず、`fix` を添えて示す。状態の報告や最初の依頼の渡し方が未測定のエージェントは選べるが、どの列が未測定かを明示する
 3. 人が、レーン名・approval（`auto` か `manual`）・preset ごとのエージェントと役割を選ぶ
-4. 選ばれた内容を `hc-hub init --lane <レーン名> --approval auto|manual --preset <preset 名>=<エージェント名> --role <preset 名>=<役割>` に、すべて明示して渡す（`--preset` と `--role` は preset の数だけ繰り返す）
+4. 選ばれた内容を `hc-hub init --lane <レーン名> --approval auto|manual --preset <preset 名>=<エージェント名> --role <preset 名>=<役割>` に、すべて明示して渡す（`--preset` と `--role` は preset の数だけ繰り返す）。絶対パスで書く preset には `--abs-path <preset 名>` を足す
 
-`init` は `.hc-hub.yml` を書き、台帳の置き場を `.gitignore` で管理から外す。commit はしないので、`.gitignore` と `.hc-hub.yml` を commit するよう人に伝える。規律のファイル（`rules`）は `init` が書かない。必要なら人が `hc-hub-rules/` などに置いて、roster に書き足す。詳細 → [references/roster.md](references/roster.md)
+`init` は `.hc-hub.yml` を書き、台帳の置き場を `.gitignore` で管理から外す。commit はしないので、`.gitignore` と `.hc-hub.yml` を commit するよう人に伝える。worker の worktree は HEAD から作るので、この commit は worker を起こす前に要る（commit がまだ 1 つも無い repo では、これが最初の commit になる）。規律のファイル（`rules`）は `init` が書かない。必要なら人が `hc-hub-rules/` などに置いて、roster に書き足す。詳細 → [references/roster.md](references/roster.md)
 
 ```bash
 hc-hub validate                  # roster を検証する

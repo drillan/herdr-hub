@@ -6,6 +6,7 @@ from typing import Any
 import yaml
 
 from hc_hub_lib.catalog import find_agent
+from hc_hub_lib.probe import login_shell, probe_shell
 from hc_hub_lib.roster import Roster, load_roster_text, resolve_worker
 
 ROSTER_NAME = ".hc-hub.yml"
@@ -30,12 +31,25 @@ def parse_pairs(values: Sequence[str], flag: str) -> dict[str, str]:
     return pairs
 
 
+def _command(argv: Sequence[str], abs_path: str | None) -> list[str]:
+    if abs_path is None:
+        return list(argv)
+    return [abs_path, *argv[1:]]
+
+
 def build_roster(
     lane: str,
     approval: str,
     presets: Mapping[str, str],
     roles: Mapping[str, str],
+    *,
+    abs_paths: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
+    paths = dict(abs_paths or {})
+    unknown = sorted(set(paths) - set(presets))
+    if unknown:
+        msg = f"--abs-path の名前 {unknown} が --preset に無い"
+        raise InitError(msg)
     if set(presets) != set(roles):
         msg = (
             f"--preset の名前 {sorted(presets)} と --role の名前 {sorted(roles)} が"
@@ -50,7 +64,7 @@ def build_roster(
         "presets": {
             name: {
                 "role": roles[name],
-                "command": list(find_agent(agent).argv),
+                "command": _command(find_agent(agent).argv, paths.get(name)),
             }
             for name, agent in presets.items()
         },
@@ -73,6 +87,41 @@ def check_roster_text(
     text: str, path: Path, lane: str, preset_names: Iterable[str]
 ) -> None:
     check_presets(load_roster_text(text, path), lane, preset_names)
+
+
+def parse_abs_paths(
+    values: Sequence[str] | None, presets: Mapping[str, str]
+) -> list[str]:
+    names = list(values or [])
+    dup = sorted({n for n in names if names.count(n) > 1})
+    if dup:
+        msg = f"--abs-path に同じ名前が 2 回ある: {dup}"
+        raise InitError(msg)
+    unknown = sorted(set(names) - set(presets))
+    if unknown:
+        msg = f"--abs-path の名前 {unknown} が --preset に無い"
+        raise InitError(msg)
+    return names
+
+
+def shell_abs_paths(names: Sequence[str], presets: Mapping[str, str]) -> dict[str, str]:
+    # 絶対パスは人に写させず、detect と同じくログインシェルの command -v から取る
+    if not names:
+        return {}
+    executables = sorted({find_agent(presets[n]).executable for n in names})
+    found = probe_shell(login_shell(), executables)
+    paths: dict[str, str] = {}
+    for name in names:
+        exe = find_agent(presets[name]).executable
+        output = found[exe]
+        if not output.startswith("/"):
+            msg = (
+                f"--abs-path {name}: ログインシェルで {exe} の絶対パスが得られない"
+                f"（command -v の結果: {output!r}。alias・関数か、見つからない）"
+            )
+            raise InitError(msg)
+        paths[name] = output
+    return paths
 
 
 def write_exclusive(path: Path, text: str) -> None:

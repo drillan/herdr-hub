@@ -39,6 +39,29 @@ def test_build_roster_shape() -> None:
     assert cfg["defaults"] == {"approval": "manual"}
 
 
+def test_build_roster_replaces_executable_with_absolute_path() -> None:
+    cfg = build_roster(
+        "be",
+        "manual",
+        {"impl": "claude", "rev": "opencode"},
+        {"impl": "実装", "rev": "review"},
+        abs_paths={"rev": "/opt/oc/bin/opencode"},
+    )
+    assert cfg["presets"]["rev"]["command"] == ["/opt/oc/bin/opencode", "--prompt"]
+    assert cfg["presets"]["impl"]["command"] == ["claude"]
+
+
+def test_build_roster_rejects_abs_path_for_unknown_preset() -> None:
+    with pytest.raises(InitError, match="--abs-path"):
+        build_roster(
+            "be",
+            "auto",
+            {"impl": "claude"},
+            {"impl": "x"},
+            abs_paths={"rev": "/opt/oc/bin/opencode"},
+        )
+
+
 def test_build_roster_rejects_mismatched_keys_and_blank_role() -> None:
     with pytest.raises(InitError):
         build_roster("be", "auto", {"a": "claude"}, {"b": "x"})
@@ -228,3 +251,118 @@ def test_init_does_not_duplicate_existing_ignore_line(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert (repo / ".gitignore").read_text() == "/.hc-hub/\n"
     assert json.loads(result.stdout)["gitignore_appended"] is False
+
+
+def _shell_home(tmp_path: Path, rc: str) -> dict[str, str]:
+    # ログインシェルは本物（passwd の pw_shell）が起きるので、HOME で rc を固定する
+    home = tmp_path / "home"
+    home.mkdir()
+    for name in (".profile", ".zshrc"):
+        (home / name).write_text(rc)
+    return {"HOME": str(home), "ZDOTDIR": str(home)}
+
+
+def _shell_only_opencode(tmp_path: Path) -> Path:
+    shbin = tmp_path / "shbin"
+    shbin.mkdir()
+    exe = shbin / "opencode"
+    exe.write_text("#!/bin/sh\n")
+    exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
+    return exe
+
+
+def _init_env(
+    repo: Path, fake: Path, env: dict[str, str], *args: str
+) -> subprocess.CompletedProcess[str]:
+    return run_cli(
+        "init",
+        "--hc",
+        str(fake),
+        *args,
+        env_extra={"HC_TERMINAL_ID": "t7", **env},
+        cwd=repo,
+    )
+
+
+def test_init_abs_path_writes_path_found_by_login_shell(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    exe = _shell_only_opencode(tmp_path)
+    env = _shell_home(tmp_path, f'PATH="{exe.parent}:$PATH"\n')
+    result = _init_env(
+        repo, fake, env,
+        "--lane", "be", "--approval", "manual",
+        "--preset", "impl=claude", "--role", "impl=実装",
+        "--preset", "rev=opencode", "--role", "rev=review",
+        "--abs-path", "rev",
+    )  # fmt: skip
+    assert result.returncode == 0, result.stderr
+    roster = load_roster(repo / ".hc-hub.yml")
+    assert roster.raw["presets"]["rev"]["command"] == [str(exe), "--prompt"]
+    assert roster.raw["presets"]["impl"]["command"] == ["claude"]
+    out = json.loads(result.stdout)
+    assert out["absolute_paths"] == {"rev": str(exe)}
+    assert "別のマシン" in out["next"]
+
+
+def test_init_without_abs_path_reports_empty_absolute_paths(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    result = _init(
+        repo,
+        fake,
+        "--lane", "be", "--approval", "manual",
+        "--preset", "impl=claude", "--role", "impl=実装",
+    )  # fmt: skip
+    assert result.returncode == 0, result.stderr
+    out = json.loads(result.stdout)
+    assert out["absolute_paths"] == {}
+    assert "別のマシン" not in out["next"]
+
+
+def test_init_missing_on_core_path_suggests_abs_path(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    result = _init(
+        repo,
+        fake,
+        "--lane", "be", "--approval", "manual",
+        "--preset", "rev=opencode", "--role", "rev=review",
+    )  # fmt: skip
+    assert result.returncode == 2
+    assert "--abs-path" in result.stderr
+
+
+def test_init_abs_path_rejects_alias(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    env = _shell_home(tmp_path, "alias opencode='echo hi'\n")
+    result = _init_env(
+        repo, fake, env,
+        "--lane", "be", "--approval", "manual",
+        "--preset", "rev=opencode", "--role", "rev=review",
+        "--abs-path", "rev",
+    )  # fmt: skip
+    assert result.returncode == 2
+    assert "絶対パス" in result.stderr
+    assert not (repo / ".hc-hub.yml").exists()
+    assert not (repo / ".gitignore").exists()
+
+
+@pytest.mark.parametrize(
+    ("abs_args", "reason"),
+    [
+        (["--abs-path", "nope"], "--preset に無い"),
+        (["--abs-path", "rev", "--abs-path", "rev"], "2 回ある"),
+    ],
+)
+def test_init_abs_path_rejects_unknown_or_duplicate(
+    tmp_path: Path, abs_args: list[str], reason: str
+) -> None:
+    repo, fake = _setup(tmp_path)
+    result = _init(
+        repo,
+        fake,
+        "--lane", "be", "--approval", "manual",
+        "--preset", "rev=claude", "--role", "rev=review",
+        *abs_args,
+    )  # fmt: skip
+    assert result.returncode == 2
+    assert reason in result.stderr
+    assert not (repo / ".hc-hub.yml").exists()

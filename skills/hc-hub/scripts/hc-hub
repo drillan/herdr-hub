@@ -36,9 +36,11 @@ from hc_hub_lib.init_roster import (
     build_roster,
     check_presets,
     check_roster_text,
+    parse_abs_paths,
     parse_pairs,
     render_roster,
     require_roster_absent,
+    shell_abs_paths,
     write_exclusive,
 )
 from hc_hub_lib.ledger import (
@@ -114,6 +116,7 @@ def add_hc_subcommands(
     init.add_argument("--approval", required=True, choices=("auto", "manual"))
     init.add_argument("--preset", action="append", required=True)
     init.add_argument("--role", action="append", required=True)
+    init.add_argument("--abs-path", action="append", metavar="PRESET")
 
     start = sub.add_parser("start", help="自分を hub としてラベル付けする")
     _add_roster(start)
@@ -307,21 +310,31 @@ def run_detect(args: argparse.Namespace, me: str) -> None:
 def run_init(args: argparse.Namespace, me: str) -> None:
     presets = parse_pairs(args.preset, "--preset")
     roles = parse_pairs(args.role, "--role")
-    executables = sorted({find_agent(a).executable for a in presets.values()})
-    cfg = build_roster(args.lane, args.approval, presets, roles)
+    abs_names = parse_abs_paths(args.abs_path, presets)
+    build_roster(args.lane, args.approval, presets, roles)
     top = require_main_checkout_top(Path.cwd())
     require_not_worker(get_labels(args.hc, me))
     path = top / ROSTER_NAME
-    text = render_roster(cfg)
-    check_roster_text(text, path, args.lane, presets)
     # 書く前の検査をすべて通してから書く（spec §7）。probe も端末を起こすので後ろに回す
     require_roster_absent(path)
     require_roster_not_ignored(top, ROSTER_NAME)
     needs_append = plan_ledger_ignore(top)
-    core = probe_core(args.hc, executables, top)
-    missing = [e for e in executables if not core[e]]
+    abs_paths = shell_abs_paths(abs_names, presets)
+    cfg = build_roster(args.lane, args.approval, presets, roles, abs_paths=abs_paths)
+    text = render_roster(cfg)
+    check_roster_text(text, path, args.lane, presets)
+    targets = {
+        name: abs_paths.get(name, find_agent(agent).executable)
+        for name, agent in presets.items()
+    }
+    core = probe_core(args.hc, sorted(set(targets.values())), top)
+    missing = sorted(name for name, target in targets.items() if not core[target])
     if missing:
-        msg = f"hc の端末の中で見つからないエージェント: {missing}（detect で確かめる）"
+        msg = (
+            f"hc の端末の中で起動できない preset: {missing}。"
+            "detect で確かめ、core の PATH を直すか、"
+            "--abs-path <preset 名> でログインシェルの絶対パスを書く"
+        )
         raise InitError(msg)
     write_exclusive(path, text)
     if needs_append:
@@ -334,12 +347,19 @@ def run_init(args: argparse.Namespace, me: str) -> None:
             )
             raise InitError(msg) from e
     check_presets(load_roster(path), args.lane, presets)
+    next_step = ".gitignore と .hc-hub.yml を commit する。"
+    if abs_paths:
+        next_step += (
+            f"{', '.join(sorted(abs_paths))} の command はこのマシンの絶対パスなので、"
+            "別のマシンでは書き直す。"
+        )
     print(
         json.dumps(
             {
                 "roster": str(path),
                 "gitignore_appended": needs_append,
-                "next": ".gitignore と .hc-hub.yml を commit する。",
+                "absolute_paths": abs_paths,
+                "next": next_step,
             },
             ensure_ascii=False,
         )

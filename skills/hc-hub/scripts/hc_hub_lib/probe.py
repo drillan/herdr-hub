@@ -14,6 +14,8 @@ from hc_hub_lib.hc_client import HC_TIMEOUT_SECONDS, HcError, run_hc
 PROBE_WAIT_SECONDS = 20
 
 _NAME_RE = re.compile(r"[A-Za-z0-9._-]+")
+# init --abs-path が core に確かめさせる絶対パス。行を空白で区切るため空白は不可
+_ABS_PATH_RE = re.compile(r"/[A-Za-z0-9._/+-]+")
 
 
 class ProbeError(Exception):
@@ -165,8 +167,8 @@ SUPPORTED_SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh"})
 def _check_names(executables: Sequence[str]) -> list[str]:
     names = list(executables)
     for n in names:
-        if not _NAME_RE.fullmatch(n):
-            msg = f"実行ファイル名として扱えない: {n!r}"
+        if not (_NAME_RE.fullmatch(n) or _ABS_PATH_RE.fullmatch(n)):
+            msg = f"実行ファイル名・絶対パスとして扱えない: {n!r}"
             raise ProbeError(msg)
     if len(set(names)) != len(names):
         msg = f"実行ファイル名が重複している: {names}"
