@@ -116,3 +116,24 @@ def test_non_utf8_gitignore_is_error(tmp_path: Path) -> None:
 def test_not_a_git_repo_is_error(tmp_path: Path) -> None:
     with pytest.raises(GitignoreError):
         ensure_ledger_ignored(tmp_path)
+
+
+def test_ls_files_failure_is_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _init_repo(tmp_path / "repo")
+    _track_gitignore(repo, "/.hc-hub/\n")
+    real_run = subprocess.run
+
+    def failing_ls_files(
+        argv: list[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        if "ls-files" in argv:
+            return subprocess.CompletedProcess(argv, 128, "", "fatal: broken")
+        return real_run(argv, **kwargs)  # type: ignore[call-overload,no-any-return]
+
+    monkeypatch.setattr(subprocess, "run", failing_ls_files)
+
+    with pytest.raises(GitignoreError, match="ls-files"):
+        ensure_ledger_ignored(repo)
+    assert (repo / ".gitignore").read_text(encoding="utf-8") == "/.hc-hub/\n"

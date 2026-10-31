@@ -7,6 +7,8 @@ IGNORE_LINE = "/.hc-hub/"
 GITIGNORE = ".gitignore"
 EXIT_IGNORED = 0
 EXIT_NOT_IGNORED = 1
+EXIT_TRACKED = 0
+EXIT_UNTRACKED = 1
 
 
 class GitignoreError(Exception):
@@ -46,7 +48,12 @@ def _ignored_by_tracked_gitignore(top: Path) -> bool:
     if source != GITIGNORE:
         return False
     tracked = _git(top, "ls-files", "--error-unmatch", GITIGNORE)
-    return tracked.returncode == 0
+    if tracked.returncode == EXIT_TRACKED:
+        return True
+    if tracked.returncode == EXIT_UNTRACKED:
+        return False
+    msg = f"git ls-files が失敗した: {top} ({tracked.stderr.strip()})"
+    raise GitignoreError(msg)
 
 
 def _append_ignore_line(top: Path) -> None:
