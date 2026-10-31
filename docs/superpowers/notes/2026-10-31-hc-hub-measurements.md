@@ -1,12 +1,12 @@
 # hc-hub 実装前の実測結果
 
-実測日: 2026-10-31。環境: hc 0.1.15（spec §3 は 0.1.14 で確認）。使い捨てのターミナルで確かめ、すべて `hc kill` → `hc rm` で片付けた。
+実測日: 2026-10-31。環境: hc 0.1.15（spec §3 は 0.1.14 で確認）。使い捨てのターミナルで確かめ、すべて `hc kill` → `hc rm` で片付けた。項目 9 は新しい tab ができた（spec との差は確認していない）。
 
 ## spec と違う結果
 
 - **項目 7**: 本体の「7.」に 4 要素を書いた。要点は、command 起動ではタグも `first_message` も付かないこと。spec はすでに `first_message` を template 起動に限っているので、spec と違うのは `<hc from=… reach=…>` のタグだけ。
 - **項目 5**: symlink が梱包されるかは公開前に確定できない。確定できないので、複製と同一性の検査を採る（spec 4.8 の後段）。
-- **項目 2**: Codex の状態報告は未確認。コマンドと失敗は本体の「2.」に書いた。
+- **項目 2**: Codex の状態報告は、開発者の指示で測らない（当面 Claude に統一）。経緯は本体の「2.」に書いた。
 
 ## 項目ごとの結果
 
@@ -22,13 +22,11 @@
   - 意味: 完了済みの子は `wait --children any` の対象から外れる。wait を走らせていない間に終わった子は、次の wait では報告されない。エージェントの子がターン終了で `done` になっても `state: live` のままである場合（上の実測）は別で、対象に残る。ここで測ったのは終了済み（exit）の子だけで、live で idle の子を 2 回目の wait で再び拾うかは測っていない。
   - Task 6 への影響: 待機ループは wait が返るたびに `hc ls`（または `hc get`）で全 worker の状態を取り直し、wait の戻り値だけで子の完了を数えない。wait の戻り値が「子 0 件」のときは、もう待つ子が無いと解釈してループを抜ける。
 
-### 2. Codex の状態報告: 未確認
+### 2. Codex の状態報告: 測らない（開発者の指示で当面 Claude に統一）
 
-- 試したコマンド: `hc run --bg --name m-codex codex --no-daemon "1 行だけ返事をして"`（計画の Step 2 の形そのまま）。
-- 結果: 起動直後にターミナルが exit 1 で終了した（`state: finished`、`exit_code: 1`）。画面のメッセージは `account/read failed … refresh token was revoked`（認証の失効）。全文は保存していない。`status` は一度も得られず、承認待ちで `blocked` になるかも見られていない。
-- 再測定でやること: 開発者が Codex に再ログインした後、同じコマンドを起こし、`hc get m-codex --json` の `status` と、承認が要る作業を頼んだときの `blocked` を確かめる。
-- 影響: それまでは「Codex が blocked を報告するか不明」として、4.4 の起動時の検査を前提にする。
-
+- 開発者の指示で、当面は worker を Claude に統一する。Codex の状態報告は測らない。
+- 参考（以前の試行）: `hc run --bg --name m-codex codex --no-daemon "1 行だけ返事をして"` は、認証の失効（`account/read failed … refresh token was revoked`）で起動直後に exit 1 で終了し、`status` を得られなかった。
+- 影響: Codex を worker に使う場合に blocked を報告するかは不明のまま。使うことになった時点で測り直す。4.4 の起動時の検査は Claude の worker を前提にする。
 
 ### 3・8. ラベルのキーに `-` と `.`、値に `/` を入れられるか: 入れられる
 
@@ -72,12 +70,18 @@
 - spec との差: spec 4.5（109 行目）はすでに `first_message.sent` を template 起動に限っている。したがって spec と違うのは、command 起動の依頼に `<hc from=… reach=…>` のタグが付くと想定していた点だけ。
 - 影響: Task 7（startup.md の briefing に hub のアドレスを書く）。報告の宛先（`hc send <hub> …`）はタグから得られないので、briefing に hub のアドレスを自分で書く。依頼が届いた確認は `first_message` ではなく、`hc get` の状態遷移で行う（spec 4.5 の通り）。
 
-### 9. `herdr.space` だけを付けた worker の新しい tab: 保留（開発者の了承待ち）
+### 9. `herdr.space` だけを付けた worker の新しい tab: できる
 
-- 確かめること: worker を `herdr.space` ラベル付きで起こしたとき、`herdr-app ls` に新しい tab ができるか。その tab の名前を `herdr-app do tab.rename` で付けられるか。
-- 保留の理由: 人の画面に tab が出るため、了承を得るまで実測していない。`herdr.space` / `herdr.tab` ラベル付きのターミナルは一切作っていない。
-- 予定のコマンド: `hc run --bg --name m-tab --label herdr.space=<hub の herdr.space> -- sleep 120` → `herdr-app ls` → `herdr-app commands` で引数を確認 → `herdr-app do tab.rename …`。
-- 影響: Task 7 の tab の作り方は未確定。この項目が済むまで、Task 7 は worker を tab に出す手順を確定させない。
+- 確かめたこと: worker を `herdr.space` ラベルだけで起こしたとき、新しい tab ができるか、どの space にできるか、`herdr-app do tab.rename` で名前を付けられるか、`hc kill` で tab が消えるか。
+- コマンド（hub の `herdr.space` は自分のターミナル t7 を `hc get t7 --json` で読んだ値 `sp0b…cef`）:
+  - `hc run --bg --name m-tab --label herdr.space=<その値> -- sleep 120` → `herdr-app ls`
+  - `herdr-app commands` で `tab.rename` の引数（`id`・`name`、どちらも任意）を確認し、`herdr-app do tab.rename --id <tab id> --name m-tab-test` → `herdr-app ls`
+  - `hc kill m-tab` → `herdr-app ls` → `hc rm m-tab`
+- 結果:
+  - 新しい tab ができた。hub と同じ space に、名前 `2` の tab が追加され、その中に m-tab のターミナルが 1 つだけ入った（hub の tab `1` には入らない）。`herdr.tab` ラベルは付けていないのに、`hc get` の labels には `where: "herdr-hub / 2"` が付いた。`herdr.tab` ラベルは付かなかった。
+  - `herdr-app do` の引数は `--<arg> <値>` の形で、`id=…` の形は `expected --<arg>` で拒否される。`tab.rename` は `{"ok": true}` を返し、`herdr-app ls` の tab 名が `m-tab-test` になった。`hc get` の `where` も `herdr-hub / m-tab-test` に追随した。
+  - `hc kill m-tab` の後、tab は自動で消え、`herdr-app ls` に tab は hub の `1` だけが残った。ターミナルは `state: finished, reason: killed` で残るので、`hc rm` で片付けた。
+- 影響: Task 7 は、worker を別 tab に出すとき `herdr.space` ラベルだけを付ければよい（space は hub の `hc get` の値）。tab 名は起動後に `herdr-app ls` で tab id（ターミナル id から引く）を得て `herdr-app do tab.rename --id … --name …` で付ける。後片付けは `hc kill` で tab が消えるので、`herdr-app do tab.close` は要らない。tab は人の画面に増えるので、worker の数だけ増えることを briefing で人に伝える。
 
 ## その他の観察（後続タスクに関係するもの）
 
