@@ -8,11 +8,12 @@ from fake_hc import make_fake_hc, run_cli
 from hc_hub_lib.init_roster import (
     InitError,
     build_roster,
+    check_presets,
     parse_pairs,
     render_roster,
     write_exclusive,
 )
-from hc_hub_lib.roster import load_roster, load_roster_text
+from hc_hub_lib.roster import RosterError, load_roster, load_roster_text
 
 
 def test_parse_pairs_splits_on_first_equals() -> None:
@@ -99,7 +100,7 @@ def test_init_writes_roster_and_gitignore(tmp_path: Path) -> None:
     out = json.loads(result.stdout)
     assert out["gitignore_appended"] is True
     assert out["roster"] == str(repo / ".hc-hub.yml")
-    assert out["next"]
+    assert out["next"] == ".gitignore と .hc-hub.yml を commit する。"
 
 
 def test_init_rejects_blank_role(tmp_path: Path) -> None:
@@ -152,3 +153,11 @@ def test_init_rejects_reserved_preset_name(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert not (repo / ".hc-hub.yml").exists()
     assert not (repo / ".gitignore").exists()
+
+
+def test_check_presets_rejects_unknown_preset(tmp_path: Path) -> None:
+    cfg = build_roster("be", "auto", {"a": "claude"}, {"a": "x"})
+    roster = load_roster_text(render_roster(cfg), tmp_path / ".hc-hub.yml")
+    check_presets(roster, "be", ["a"])
+    with pytest.raises(RosterError):
+        check_presets(roster, "be", ["nope"])

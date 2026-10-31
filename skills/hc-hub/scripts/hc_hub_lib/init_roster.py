@@ -5,7 +5,7 @@ from typing import Any
 import yaml
 
 from hc_hub_lib.catalog import find_agent
-from hc_hub_lib.roster import load_roster_text, resolve_worker
+from hc_hub_lib.roster import Roster, load_roster_text, resolve_worker
 
 ROSTER_NAME = ".hc-hub.yml"
 LEDGER_PATH = ".hc-hub/ledger.jsonl"
@@ -63,12 +63,15 @@ def render_roster(cfg: Mapping[str, Any]) -> str:
     return yaml.safe_dump(dict(cfg), allow_unicode=True, sort_keys=False)
 
 
+def check_presets(roster: Roster, lane: str, preset_names: Iterable[str]) -> None:
+    for name in preset_names:
+        resolve_worker(roster, lane, name)
+
+
 def check_roster_text(
     text: str, path: Path, lane: str, preset_names: Iterable[str]
 ) -> None:
-    roster = load_roster_text(text, path)
-    for name in preset_names:
-        resolve_worker(roster, lane, name)
+    check_presets(load_roster_text(text, path), lane, preset_names)
 
 
 def write_exclusive(path: Path, text: str) -> None:

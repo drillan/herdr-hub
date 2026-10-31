@@ -29,6 +29,7 @@ from hc_hub_lib.init_roster import (
     ROSTER_NAME,
     InitError,
     build_roster,
+    check_presets,
     check_roster_text,
     parse_pairs,
     render_roster,
@@ -306,13 +307,13 @@ def run_init(args: argparse.Namespace, me: str) -> None:
         raise InitError(msg)
     write_exclusive(path, text)
     appended = ensure_ledger_ignored(top)
-    check_roster_text(path.read_text(encoding="utf-8"), path, args.lane, presets)
+    check_presets(load_roster(path), args.lane, presets)
     print(
         json.dumps(
             {
                 "roster": str(path),
                 "gitignore_appended": appended,
-                "next": ".gitignore と .hc-hub.yml を commit する",
+                "next": ".gitignore と .hc-hub.yml を commit する。",
             },
             ensure_ascii=False,
         )
