@@ -13,8 +13,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from hc_hub_lib.catalog import KNOWN_AGENTS, CatalogError
+from hc_hub_lib.catalog import KNOWN_AGENTS, CatalogError, find_agent
 from hc_hub_lib.detect import detect_report
+from hc_hub_lib.gitignore import GitignoreError, ensure_ledger_ignored
 from hc_hub_lib.guard import GuardError, check, check_placement_tab
 from hc_hub_lib.hc_client import (
     HcError,
@@ -23,6 +24,15 @@ from hc_hub_lib.hc_client import (
     hc_json,
     run_hc,
     terminal_id,
+)
+from hc_hub_lib.init_roster import (
+    ROSTER_NAME,
+    InitError,
+    build_roster,
+    check_roster_text,
+    parse_pairs,
+    render_roster,
+    write_exclusive,
 )
 from hc_hub_lib.ledger import (
     EVENTS,
@@ -84,6 +94,13 @@ def add_hc_subcommands(
 
     detect = sub.add_parser("detect", help="エージェントが使えるかを判定する")
     _add_hc(detect)
+
+    init = sub.add_parser("init", help=".hc-hub.yml の雛形を書く")
+    _add_hc(init)
+    init.add_argument("--lane", required=True)
+    init.add_argument("--approval", required=True, choices=("auto", "manual"))
+    init.add_argument("--preset", action="append", required=True)
+    init.add_argument("--role", action="append", required=True)
 
     start = sub.add_parser("start", help="自分を hub としてラベル付けする")
     _add_roster(start)
@@ -272,6 +289,36 @@ def run_detect(args: argparse.Namespace, me: str) -> None:
     print(json.dumps(detect_report(core, shell, shell_path), ensure_ascii=False))
 
 
+def run_init(args: argparse.Namespace, me: str) -> None:
+    presets = parse_pairs(args.preset, "--preset")
+    roles = parse_pairs(args.role, "--role")
+    executables = sorted({find_agent(a).executable for a in presets.values()})
+    cfg = build_roster(args.lane, args.approval, presets, roles)
+    top = require_main_checkout_top(Path.cwd())
+    require_not_worker(get_labels(args.hc, me))
+    path = top / ROSTER_NAME
+    text = render_roster(cfg)
+    check_roster_text(text, path, args.lane, presets)
+    core = probe_core(args.hc, executables, top)
+    missing = [e for e in executables if not core[e]]
+    if missing:
+        msg = f"hc の端末の中で見つからないエージェント: {missing}（detect で確かめる）"
+        raise InitError(msg)
+    write_exclusive(path, text)
+    appended = ensure_ledger_ignored(top)
+    check_roster_text(path.read_text(encoding="utf-8"), path, args.lane, presets)
+    print(
+        json.dumps(
+            {
+                "roster": str(path),
+                "gitignore_appended": appended,
+                "next": ".gitignore と .hc-hub.yml を commit する",
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
 def run_hc_commands(args: argparse.Namespace) -> None:
     if args.command == "preflight":
         run_preflight(os.environ)
@@ -283,6 +330,8 @@ def run_hc_commands(args: argparse.Namespace) -> None:
         print(check_placement_tab(get_labels(args.hc, me)))
     elif args.command == "detect":
         run_detect(args, me)
+    elif args.command == "init":
+        run_init(args, me)
     elif args.command == "start":
         run_start(args, me)
     else:
@@ -293,7 +342,15 @@ def run(args: argparse.Namespace) -> None:
     if args.command == "ledger":
         run_ledger(args)
         return
-    if args.command in ("guard", "space", "preflight", "start", "spawn-argv", "detect"):
+    if args.command in (
+        "guard",
+        "space",
+        "preflight",
+        "start",
+        "spawn-argv",
+        "detect",
+        "init",
+    ):
         run_hc_commands(args)
         return
     roster = load_roster(args.roster)
@@ -325,6 +382,8 @@ def main() -> int:
         ProbeError,
         WorkspaceError,
         CatalogError,
+        InitError,
+        GitignoreError,
     ) as e:
         print(f"hc-hub: {e}", file=sys.stderr)
         return ROSTER_ERROR_EXIT
