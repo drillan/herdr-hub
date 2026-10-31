@@ -1,6 +1,6 @@
 import json
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -24,6 +24,14 @@ class LedgerEvent:
     command: tuple[str, ...] | None
     template: str | None
     brief: str | None
+
+    def __post_init__(self) -> None:
+        if self.command is not None and self.template is not None:
+            msg = "command と template は同時に持てない"
+            raise LedgerError(msg)
+        if self.event == "spawn" and self.command is None and self.template is None:
+            msg = "spawn には command か template のどちらかが要る"
+            raise LedgerError(msg)
 
 
 def append_event(path: Path, ev: LedgerEvent) -> None:
@@ -78,6 +86,10 @@ def _parse(line: str) -> LedgerEvent:
         msg = "JSON オブジェクトではない"
         raise TypeError(msg)
     row = cast("dict[str, Any]", row)
+    expected = {f.name for f in fields(LedgerEvent)}
+    if set(row) != expected:
+        msg = f"項目が一致しない（過不足: {sorted(set(row) ^ expected)}）"
+        raise ValueError(msg)
     event = row.get("event")
     if event not in EVENTS:
         msg = f"event は {'・'.join(EVENTS)} のいずれか（{event!r}）"
@@ -107,11 +119,17 @@ def read_events(path: Path) -> list[LedgerEvent]:
     except UnicodeDecodeError as e:
         msg = f"台帳が UTF-8 ではない: {path}（{e}）"
         raise LedgerError(msg) from e
+    if text == "":
+        return []
+    # splitlines は JSON 内に生で出る U+2028 などでも割ってしまう
+    lines = text.split("\n")
+    if lines[-1] == "":
+        lines.pop()
     events: list[LedgerEvent] = []
-    for number, line in enumerate(text.splitlines(), start=1):
+    for number, line in enumerate(lines, start=1):
         try:
             events.append(_parse(line))
-        except (ValueError, TypeError, KeyError) as e:
+        except (ValueError, TypeError, KeyError, LedgerError) as e:
             msg = f"台帳 {path} の {number} 行目が不正: {e!r}"
             raise LedgerError(msg) from e
     return events

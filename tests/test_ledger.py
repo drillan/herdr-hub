@@ -65,7 +65,7 @@ def _line(**edits: Any) -> str:  # noqa: ANN401
         "event": "spawn",
         "hub": "h",
         "preset": None,
-        "command": None,
+        "command": ["c"],
         "template": None,
         "brief": None,
     }
@@ -178,7 +178,7 @@ def _append(roster: Path, lane: str, name: str, *extra: str) -> None:
 def test_cli_append_and_list(tmp_path: Path) -> None:
     roster = _roster(tmp_path)
     _append(roster, "be", "w1", "--command-json", '["claude","-x"]', "--brief", "b")
-    _append(roster, "fe", "w2")
+    _append(roster, "fe", "w2", "--template", "t")
     p = run_cli("ledger", "list", "--roster", str(roster), "--lane", "be")
     rows = json.loads(p.stdout)
     assert [r["name"] for r in rows] == ["w1"]
@@ -217,3 +217,68 @@ def test_cli_list_corrupt_ledger_exits_2(tmp_path: Path) -> None:
     p = run_cli("ledger", "list", "--roster", str(roster))
     assert p.returncode == 2
     assert "1" in p.stderr
+
+
+@pytest.mark.parametrize(
+    "sep", ["\u2028", "\u2029", "\u0085", "\u000c", "\u001c", "\r"]
+)
+def test_unicode_line_separators_in_brief_roundtrip(tmp_path: Path, sep: str) -> None:
+    p = tmp_path / "l.jsonl"
+    ev = replace(EV, brief=f"a{sep}b")
+    append_event(p, ev)
+    append_event(p, EV)
+    assert read_events(p) == [ev, EV]
+
+
+def test_empty_line_in_middle_raises_with_line_number(tmp_path: Path) -> None:
+    p = tmp_path / "l.jsonl"
+    p.write_text(_line() + "\n" + _line())
+    with pytest.raises(LedgerError, match="2"):
+        read_events(p)
+
+
+def test_empty_file_reads_as_empty(tmp_path: Path) -> None:
+    p = tmp_path / "l.jsonl"
+    p.write_text("")
+    assert read_events(p) == []
+
+
+def test_extra_key_raises_with_line_number(tmp_path: Path) -> None:
+    p = tmp_path / "l.jsonl"
+    p.write_text(_line() + _line(extra=1))
+    with pytest.raises(LedgerError, match="2"):
+        read_events(p)
+
+
+BOTH = {"command": ["c"], "template": "t"}
+
+
+def test_event_rejects_command_and_template_together() -> None:
+    with pytest.raises(LedgerError):
+        replace(EV, command=("c",), template="t")
+
+
+def test_spawn_requires_command_or_template() -> None:
+    with pytest.raises(LedgerError):
+        replace(EV, command=None, template=None)
+
+
+def test_non_spawn_may_have_neither(tmp_path: Path) -> None:
+    ev = replace(EV, event="adopt", command=None, template=None)
+    append_event(tmp_path / "l.jsonl", ev)
+    assert read_events(tmp_path / "l.jsonl") == [ev]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        _line(**BOTH),
+        _line(event="stop", **BOTH),
+        _line(command=None, template=None),
+    ],
+)
+def test_read_rejects_launch_rule_violations(tmp_path: Path, line: str) -> None:
+    p = tmp_path / "l.jsonl"
+    p.write_text(line)
+    with pytest.raises(LedgerError, match="1"):
+        read_events(p)
