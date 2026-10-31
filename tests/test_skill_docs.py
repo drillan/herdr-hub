@@ -228,7 +228,7 @@ def test_status_is_read_as_state_with_repeated_observation() -> None:
 
 
 def test_blocked_hub_send_rejection_is_documented() -> None:
-    assert "--force を使わずに待って送り直す" in _ref("briefing.md")
+    assert "`--force` を使わずに待って送り直す" in _ref("briefing.md")
     messaging = _ref("messaging.md")
     assert "blocked から戻" in messaging
     assert "hc read" in messaging.split("blocked から戻")[1].splitlines()[0]
@@ -267,8 +267,8 @@ def test_trust_dialog_is_described_as_possible_not_certain() -> None:
     for name in ["agents.md", "startup.md", "failure-modes.md", "approvals.md"]:
         t = _ref(name)
         assert "出ることがある" in t, name
-        assert "毎回止まる" not in t, name
     assert "出なかった" in _ref("agents.md")
+    assert "で止まる。このとき" not in _ref("agents.md")
     assert "hc wait <t> --timeout 60" in _ref("startup.md")
 
 
@@ -290,3 +290,21 @@ def test_tab_placement_uses_terminal_id_and_mandatory_rename() -> None:
     failure = _ref("failure-modes.md")
     assert "`where`" in failure
     assert "同じ tab" in failure
+
+
+def test_review_round1_fixes() -> None:
+    startup = _ref("startup.md")
+    assert 'type == "array" and length > 0 and all(.[]; type == "string")' in startup
+    assert "123" in startup
+    assert "workspace の新設は人間が明示した場合だけ" in startup
+    assert "worktree の新設は人間が明示" not in startup
+    force = "`--force` を使わずに待って送り直す"
+    after_force = _ref("briefing.md").split(force)[1].splitlines()[0]
+    assert "2 回まで" in after_force
+    assert "ターンを終え" in after_force
+    handover = _ref("context-and-handover.md")
+    assert "終了コードが 1" in handover
+    assert "0 と 1 以外" in handover
+    after_decision = _ref("approvals.md").split("人の判断、2026-10-31")[1]
+    assert "台帳" in after_decision.splitlines()[0]
+    assert "`--task` が末尾に付く" not in _ref("agents.md")

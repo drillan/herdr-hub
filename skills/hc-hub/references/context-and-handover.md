@@ -41,7 +41,7 @@ hc read <t>
 交代コストの支配項は後任の context の再暖機で、発火時期に依存しない。発火時に生成する量を減らすため、次を常時行う。
 
 - worker は進捗・判断・罠をログ file へ随時追記する（briefing の作法に含める）。置き場は worker の worktree の中の `<worktree>/.hc-hub/<名前>.log`（非追跡。設計者の判断で、spec が定めた場所ではない）で、絶対パスを hub が briefing に書く。roster のディレクトリの下には置かない。そこは worker の worktree の外なので、worker の Claude の PreToolUse フックが書き込みを止めた（実測）
-  - **非追跡であることを、起こす前に hub が確かめる。** `git -C <worktree> check-ignore -q .hc-hub/<名前>.log` が終了コード 0 なら無視されている。0 でなければ、`$(git -C <worktree> rev-parse --path-format=absolute --git-common-dir)/info/exclude` に `/.hc-hub/` の 1 行を追記し（`info/exclude` は同じ repo の worktree で共有される）、もう一度 `check-ignore` を打って 0 になることを確かめる。0 にならなければ止まって人に上げる
+  - **非追跡であることを、起こす前に hub が確かめる。** `git -C <worktree> check-ignore -q .hc-hub/<名前>.log` の終了コードで分ける。終了コードが 0 なら無視されている。終了コードが 1 なら無視されていないので、`$(git -C <worktree> rev-parse --path-format=absolute --git-common-dir)/info/exclude` に `/.hc-hub/` の 1 行を追記し（`info/exclude` は同じ repo の worktree で共有される）、もう一度 `check-ignore` を打って 0 になることを確かめる。0 にならなければ止まって人に上げる。0 と 1 以外（worktree のパスの誤りなど、致命的なエラー）は追記せず、エラーとして止まって人に上げる
   - **同じ worktree に起こした後任は、そのログを読む。** 交代で後任を同じ worktree に起こすときは、briefing に前任のログの絶対パスを書く
   - **worktree を撤去する前に引き継ぎを済ませる。** ログは worktree の中にあるので、撤去すると消える。後任が読み終えた、または必要な内容を恒久層へ移したあとに撤去する（[worktrees.md](worktrees.md)）
 - handoff は「ログのパス + 差分のひとこと」で済ませる。発火時の生成コストが 0 に近づき、高い閾値でも書き切れる

@@ -43,11 +43,13 @@ hub は人の承認を求めずに worker を起こす。そのぶん、起こ�
 2. 終了コードが 0 だったときだけ、NUL 区切りにして `xargs -0` で `hc` に渡す。配列が空なら `hc` を打たない
 
    ```bash
-   jq -e 'length > 0' <roster のディレクトリ>/.hc-hub/argv-<名前>.json > /dev/null \
+   jq -e 'type == "array" and length > 0 and all(.[]; type == "string")' <roster のディレクトリ>/.hc-hub/argv-<名前>.json > /dev/null \
      && jq -j '.[] + "\u0000"' <roster のディレクトリ>/.hc-hub/argv-<名前>.json | xargs -0 hc
    ```
 
-   この形は bash でも zsh でも動く（bash 専用の配列読み込みは zsh では動かず、配列を変数に入れて展開する形もシェルで挙動が違う）。1 行目の `jq -e` は、空の配列と読み込みの失敗を非ゼロの終了コードにして、2 行目に進ませない。空白・引用符・`*`・`$` を含む要素は、そのまま 1 要素として渡る（bash と zsh で実測）。`xargs` は `hc` の標準入力を空にする。要素が非常に多く引数の長さの上限を超えると `xargs` は `hc` を複数回に分けて打つので、`spawn-argv` の出力がそこまで大きくなったら人に上げる
+   この形は bash でも zsh でも動く（bash 専用の配列読み込みは zsh では動かず、配列を変数に入れて展開する形もシェルで挙動が違う）。1 行目の `jq -e` は、配列でない・空・文字列でない要素を含む・読み込みに失敗した、のどれでも非ゼロの終了コードにして、2 行目に進ませる（bash と zsh で、これらの入力で `hc` が走らないことを実測）。空白・引用符・`*`・`$` を含む要素は、そのまま 1 要素として渡る（bash と zsh で実測）。`xargs` は `hc` の標準入力を空にする。要素が非常に多く引数の長さの上限を超えると `xargs` は `hc` を複数回に分けて打つので、`spawn-argv` の出力がそこまで大きくなったら人に上げる
+
+   **`xargs` は `hc` の終了コードを書き換える**（GNU xargs の仕様: `hc` が 1〜125 で終わると 123、255 だと 124）。そのため `exit 9` のような `hc` の終了コードの値では分岐できない。失敗の理由は `hc` が出す標準エラーで読む。それで足りなければ `hc get` などで状態を取り直す。
 
 - `spawn-argv` は `hc` に続く引数を JSON の配列で出す。要素の順序も中身も変えずに渡す
 - 自分のレーンの hub でない端末（`hc-hub start` を打っていない、role が `hub` でない、別レーンのラベルを持つ）で打つと、`spawn-argv` はエラーで止まる
@@ -59,7 +61,7 @@ hub は人の承認を求めずに worker を起こす。そのぶん、起こ�
 - `hc run` の応答（`--json`）の `address` を新しい worker のアドレスとして読む。サイドバーの並びから推測しない
 - `--no-notify` を付けない。`hc run --help` では「Don't type notes about it into its parent」で、付けると親へ知らせが届かなくなる。親への自動通知（`<hc>` のタグ）を、blocked などの知らせの経路に使う
 
-workspace や worktree の新設は人間が明示した場合だけ。hc に workspace は無く、worktree の新設は [worktrees.md](worktrees.md) の規約に従う。
+workspace の新設は人間が明示した場合だけ（hc に workspace は無い）。worker の worktree は [worktrees.md](worktrees.md) の規約に従って hub が作る。
 
 ## 配置（placement）
 

@@ -30,7 +30,7 @@ hc 0.1.15 で確かめたこと。出所が実測でないものは、行末に�
 opencode v2.2.5 で確かめたこと（2026-10-31。対話の画面の起動だけで、`blocked` への答え方は未測定）。
 
 - 対話の画面（TUI）は hc に状態を報告する（`status.app` が `opencode`）
-- 最初の依頼は `--prompt "<依頼>"` で渡す。位置引数はディレクトリとして解釈される。roster の `command` は `[opencode, --prompt]` とし、`--task` が末尾に付く
+- 最初の依頼は `--prompt "<依頼>"` で渡す。位置引数はディレクトリとして解釈される。roster の `command` は `[opencode, --prompt]` とし、`--task` の値（依頼の文字列）が `--prompt` の直後に付く
 - `sh -c "opencode run … | tee"` のように包んで起こすと、agent は `sh` として見え、`.status` は `null` のままになる。状態を報告させるには、包まずに起こす
 - `opencode` が core の PATH に無いと起動できない。上の「`command` は core から見つかる必要がある」に従う
 
