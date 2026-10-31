@@ -30,7 +30,7 @@ worker が受け取る唯一の作法書は briefing である。skill を読む
 - 同じレーンの他 agent の名前と役割（誰に何を直送してよいかの判断材料）
 - **レーンを越えない。** 送ってよいのは、briefing に書かれた hub のアドレスと、hub に指示された相手だけ。他のレーンの worker には、読むことも含めて触れない。この規律は機構的な遮断ではない（ラベルは自己申告で、ガードは自分に課す規律）ので、守るのは worker 自身である。宛先を取る操作の前に `hc-hub guard --op <op> <t>` を打てる環境ならそれを打つ。[lanes.md](lanes.md)
 - **勝手にエージェントを起こさない。** worker が自分で `hc run` して子を起こすと、子はラベルを持たず hub のレーンの外に出る。必要なら「候補」として hub に上げる
-- **進捗・判断・罠は log file へ随時追記する**（hub が指定するパスに。交代時の handoff はこれへの参照になる → `context-and-handover`）
+- **進捗・判断・罠は log file へ随時追記する**（hub が指定するパスに。交代時の handoff はこれへの参照になる → [context-and-handover.md](context-and-handover.md)）
 - **他の worker を `hc wait` 等で監視しない。** 待つべきものがあるときは「何を待っているか」を 1 行で hub へ投げてターンを終える
 - **新しい作業（issue・別タスク化）を自分で発行しない。** 「候補として hub へ上げる」
 - **承認 UI で止まったときはそのまま待つ。** hub 側には `blocked` として見え、hub が [approvals.md](approvals.md) の範囲で答える
@@ -100,7 +100,7 @@ review を担う worker には、最終ブロック（進め方）の前に以�
 
 ## 交代時・途中参加の分担
 
-交代では briefing を 2 人で書く（手順は `context-and-handover`）:
+交代では briefing を 2 人で書く（手順は [context-and-handover.md](context-and-handover.md)）:
 
 | 書き手 | ブロック |
 |---|---|

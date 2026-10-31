@@ -1,6 +1,7 @@
 import re
 
 from _paths import DISCIPLINE_MAP, HERDR1, REFS, SHARED, SKILL_DIR
+from hc_hub_lib.roster import ALLOWED_KEYS
 
 PLACED = {
     "references/lanes.md",
@@ -9,6 +10,10 @@ PLACED = {
     "references/startup.md",
     "references/messaging.md",
     "references/briefing.md",
+    "references/roster.md",
+    "references/context-and-handover.md",
+    "references/failure-modes.md",
+    "SKILL.md",
 }
 
 
@@ -129,3 +134,50 @@ def test_messaging_rereads_state_after_wait() -> None:
     t = (REFS / "messaging.md").read_text()
     for w in ["hc wait --children any", "hc ls", "hc get", "未測定"]:
         assert w in t, w
+
+
+def test_every_map_row_is_placed_somewhere() -> None:
+    assert {r["置き場所"] for r in map_rows()} <= PLACED
+
+
+def test_skill_frontmatter() -> None:
+    t = (SKILL_DIR / "SKILL.md").read_text()
+    assert t.startswith("---\nname: hc-hub\n")
+    assert "HC_TERMINAL_ID" in t.split("---")[1]
+
+
+def test_skill_indexes_every_reference() -> None:
+    t = (SKILL_DIR / "SKILL.md").read_text()
+    for f in REFS.glob("*.md"):
+        assert f"references/{f.name}" in t, f.name
+
+
+def test_skill_section0_order_and_overrides() -> None:
+    t = (SKILL_DIR / "SKILL.md").read_text()
+    assert t.index("hc-hub preflight") < t.index("hc --skill")
+    assert "blocked" in t
+    assert "--outlive-parent" in t
+
+
+def test_roster_doc_lists_every_allowed_key() -> None:
+    t = (REFS / "roster.md").read_text()
+    for stage, keys in ALLOWED_KEYS.items():
+        for k in keys:
+            assert f"`{k}`" in t, (stage, k)
+
+
+def test_roster_doc_states_removed_keys_and_ranges() -> None:
+    t = (REFS / "roster.md").read_text()
+    for w in ["`kind`", "`transport`", "`on`", "0 < x ≤ 1", "^[a-z0-9_-]{1,32}$"]:
+        assert w in t, w
+
+
+def test_failure_modes_has_hc_specific_traps() -> None:
+    t = (REFS / "failure-modes.md").read_text()
+    for w in ["exit 9", "--outlive-parent", "herdr-app do", "--id", "実測"]:
+        assert w in t, w
+
+
+def test_briefing_links_context_and_handover() -> None:
+    t = (REFS / "briefing.md").read_text()
+    assert "](context-and-handover.md)" in t
