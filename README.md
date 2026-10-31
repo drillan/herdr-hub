@@ -185,7 +185,7 @@ herdr-core（CLI は `hc`）の上で、**レーンごとの hub** が複数の�
 
 - **herdr-core**（`hc` が PATH にあり、hub が `HC_TERMINAL_ID` を持つ端末の中で動くこと）
 - **`uv`**（同梱 CLI `hc-hub` の実行に使う）
-- 確かめたエージェントは Claude Code と opencode（対話の画面。最初の依頼は `--prompt` で渡す）。Codex は測っていない
+- 確かめたエージェントは Claude Code・opencode・Devin。Claude Code と opencode は状態の報告と最初の依頼の渡し方まで（opencode は `--prompt` で渡す）、Devin は状態の報告まで。Codex は測っていない
 - roster の `command` は、hc の core の PATH から見つかること。core の PATH はユーザーのシェルの PATH と違うことがあり、見つからないと `hc run` が `spawn_failed` で失敗する。core の PATH にあるディレクトリに置くか、core の PATH にディレクトリを足す
 
 ### インストール
@@ -198,7 +198,9 @@ gh skill install drillan/herdr-hub hc-hub
 
 ### `.hc-hub.yml` の作り方
 
-[.hc-hub.yml.example](skills/hc-hub/.hc-hub.yml.example) を作業対象 repo の直下に `.hc-hub.yml` としてコピーし、パスを実在のものに直す。`ledger` と、どの段かで `approval` の指定が必須。Claude だけで編成する最小形:
+作業対象 repo の最上位で、hub にするエージェントから `hc-hub detect` で既知のエージェント（claude・opencode・devin・codex・copilot・pi）が hc の端末の中で起動できるかを調べる（書き込みはしない）。選べるのは判定が `available` のものだけで、`shell_only`・`shell_alias`・`missing` は `fix` に従って直してから選ぶ。人がレーン名・approval・preset ごとのエージェントと役割を選び、`hc-hub init --lane <レーン名> --approval auto|manual --preset <preset 名>=<エージェント名> --role <preset 名>=<役割>` で `.hc-hub.yml` を書く。`init` は台帳の置き場を `.gitignore` に足すが commit はしないので、`.gitignore` と `.hc-hub.yml` を commit する。
+
+手で書くなら、[.hc-hub.yml.example](skills/hc-hub/.hc-hub.yml.example) を作業対象 repo の直下に `.hc-hub.yml` としてコピーし、パスを実在のものに直す。`ledger` と、どの段かで `approval` の指定が必須。Claude だけで編成する最小形（`init` の出力と同じ形）:
 
 ```yaml
 presets:

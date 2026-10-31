@@ -1,6 +1,7 @@
 import re
 
 from _paths import DISCIPLINE_MAP, HERDR1, REFS, ROOT, SHARED, SKILL_DIR
+from hc_hub_lib.catalog import KNOWN_AGENTS
 from hc_hub_lib.roster import ALLOWED_KEYS
 
 PLACED = {
@@ -308,3 +309,34 @@ def test_review_round1_fixes() -> None:
     after_decision = _ref("approvals.md").split("人の判断、2026-10-31")[1]
     assert "台帳" in after_decision.splitlines()[0]
     assert "`--task` が末尾に付く" not in _ref("agents.md")
+
+
+def test_rules_do_not_live_in_untracked_dir() -> None:
+    files = [*SKILL_DIR.rglob("*.md"), SKILL_DIR / ".hc-hub.yml.example"]
+    for f in files:
+        body = f.read_text()
+        assert "rules: [.hc-hub/" not in body, f
+        assert ".hc-hub/worker-boundary" not in body, f
+
+
+def test_agents_table_matches_catalog() -> None:
+    rows = table_rows(_ref("agents.md"), "名前")
+    expected = [
+        (a.name, "`" + " ".join(a.argv) + "`", a.status_report, a.first_task)
+        for a in KNOWN_AGENTS
+    ]
+    assert [r[:4] for r in rows] == expected
+
+
+def test_skill_section1_describes_init_flow() -> None:
+    skill = _skill()
+    assert "hc-hub detect" in skill
+    assert "hc-hub init" in skill
+    assert "カレントディレクトリ" in skill
+    assert "既定は repo 直下" not in skill
+
+
+def test_roster_doc_describes_detect_init() -> None:
+    roster = _ref("roster.md")
+    for word in ("shell_only", "shell_alias", "hc-hub.role=probe", "info/exclude"):
+        assert word in roster, word

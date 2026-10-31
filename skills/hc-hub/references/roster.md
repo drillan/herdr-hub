@@ -12,20 +12,20 @@ hc-hub が調整対象を知るための設定。roster の**正は編成の意�
 
 ## YAML スキーマ
 
-テンプレートはこの skill 同梱の [.hc-hub.yml.example](../.hc-hub.yml.example)。作業対象 repo の直下に `.hc-hub.yml` としてコピーし、パスを実在のものに直して使う。
+`hc-hub init` で最小形を書く（上の「detect と init」）か、この skill 同梱のテンプレート [.hc-hub.yml.example](../.hc-hub.yml.example) を作業対象 repo の直下に `.hc-hub.yml` としてコピーし、パスを実在のものに直して使う。
 
 ```yaml
 presets:                      # 名前付きの設定テンプレート
-  impl:     { role: 実装, command: [claude], rules: [.hc-hub/worker-boundary.md] }
+  impl:     { role: 実装, command: [claude], rules: [hc-hub-rules/worker-boundary.md] }
   advisor:  { role: 設計相談, template: advisor }
 defaults:                     # 全員の既定値（書けるキーは限られる）
-  rules: [.hc-hub/lane-scope.md]
+  rules: [hc-hub-rules/lane-scope.md]
   approval: auto              # auto | manual。どの段にも無ければエラー
 ledger: .hc-hub/ledger.jsonl  # 必須
 lanes:
   backend:
-    rules: [.hc-hub/backend-scope.md]       # このレーンの全員（hub と worker）
-    hub: { rules: [.hc-hub/merge-gate.md] } # このレーンの hub だけ
+    rules: [hc-hub-rules/backend-scope.md]       # このレーンの全員（hub と worker）
+    hub: { rules: [hc-hub-rules/merge-gate.md] } # このレーンの hub だけ
     agents: {}                               # 常駐させたい agent だけ
 ```
 
@@ -129,6 +129,40 @@ lanes:
 
 交代では前任生存中に後任を起こすため、同名を取れない。後任は `<元の名前の短縮>-h<連番>` の仮名（32 文字以内。元の名前の末尾を削って `-h<連番>` を必ず入れる）で起動し、前任の exit 後も仮名のまま運用し、台帳の記録を後任へ付け替える（hc には端末の名前を起動後に変える操作が無いので、名前そのものは変えない）。前任の `stop` と後任の仮名を台帳に記録する。手順は [context-and-handover.md](context-and-handover.md)。
 
+## detect と init（roster の作り方）
+
+roster は 2 通りで作れる。`hc-hub init` で雛形を書くか、テンプレートをコピーして手で直す。`init` が書くのは最小形（`presets`・`defaults.approval`・`ledger`・`lanes.<L>.agents: {}`）だけで、`rules` と `role_def` は入らない。規律のファイルが要るなら、人があとから置いて roster に書き足す。
+
+どちらのサブコマンドも、hc の端末の中で、repo のメインのチェックアウトの最上位で実行する。自分のラベルの `hc-hub.role` が `hub` 以外（worker など）、linked worktree や submodule の中、最上位でない cwd ではエラーで止まる。
+
+**`hc-hub detect`** は書き込みをせず、既知のエージェント（[agents.md](agents.md) の一覧）ごとに判定を JSON で出す。hc の端末の中（使い捨ての端末）と、ユーザーのログインシェルの対話シェルの両方で `command -v` を引いて決める。
+
+| 判定 | 意味 | 選べるか |
+|---|---|---|
+| `available` | hc の端末の中で見つかった | 選べる |
+| `shell_only` | 端末の中で見つからないが、対話シェルでは絶対パスで見つかった | 選べない。`fix` が、core の PATH に足すディレクトリを示す |
+| `shell_alias` | 端末の中で見つからず、対話シェルの出力が絶対パスでない（alias・関数・組み込み） | 選べない。実体の実行ファイルを core の PATH に置く |
+| `missing` | どちらでも見つからない | 選べない |
+
+出力は、エージェントごとの名前・判定・`shell_output`・起動の `argv`・測定の状態（`status_report`・`first_task`）・`note`・`fix` と、使ったログインシェルのパス `login_shell`。判定できないとき（対話シェルが sh 系でない、打ち切り、既知の名前の欠け）は、判定せずエラーで止まる。
+
+**`hc-hub init`** は、人が選んだ内容をすべて引数で受け取る。既定値は持たない。
+
+```bash
+hc-hub init --lane <L> --approval auto|manual \
+  --preset <preset 名>=<エージェント名> --role <preset 名>=<役割> \
+  [--preset … --role …]
+```
+
+- 値は最初の `=` で分けるので、役割に `=`・空白・日本語を含められる。`--preset` と `--role` は preset ごとに 1 つずつ必要で、同じ preset 名の重複と空の役割はエラー。同じエージェントを複数の preset に割り当ててよい
+- エージェント名は既知の一覧にあるものだけ。選ばれたエージェントが hc の端末の中で見つかるかを、`init` が改めて確かめる（`detect` を飛ばした場合への備え）
+- `.hc-hub.yml` は新規に作る。既にあれば上書きせずエラーで止まる。書く前に、書き出す内容を `validate` と同じ検査にかけ、通らなければ何も書かない
+- 書く場所は cwd の `.hc-hub.yml` で、`--roster` は持たない。`command` は一覧の argv をそのまま使い、絶対パスは書かない
+
+**probe の端末。** `detect`・`init` は、起動できるかを確かめる使い捨ての端末を `hc-hub-probe-<pid>` の名前、`hc-hub.role=probe` のラベルで起こす。[lanes.md](lanes.md) の「ラベルの無い宛先は操作しない」の例外として、CLI が自分で起こしたこの端末だけは、CLI の中で `wait`・`read`・`rm` してよい。端末は成功してもエラーでも消す。hub や worker がこのラベルの端末を手で操作することはしない。
+
+**`.gitignore` と worker の worktree。** `init` は台帳の置き場 `.hc-hub/ledger.jsonl` が git の管理から外れているかを `git check-ignore` で確かめ、外れていなければ `.gitignore` に `/.hc-hub/` を追記する（追跡された `.gitignore` 以外の `info/exclude` や global の除外で無視されている場合も、clone した他の人には効かないので追記する）。`init` は commit しない。`.gitignore` と `.hc-hub.yml` を commit するよう、出力の `next` で伝える。commit されるまでは、HEAD から作る worker の worktree に `.gitignore` の行が入らない。そのあいだは、worker の worktree の側で `info/exclude` に `/.hc-hub/` を足す既存の手順が要る（[context-and-handover.md](context-and-handover.md)）。
+
 ## `hc-hub` の使い方
 
 どのサブコマンドも、roster 系は `--roster <path>`（既定は cwd の `.hc-hub.yml`）を取る。検証に失敗すると標準エラーに理由を出し、終了コード 2 で止まる。
@@ -136,6 +170,8 @@ lanes:
 | コマンド | 用途 |
 |---|---|
 | `hc-hub validate` | roster を検証する。書いた直後と、起動の前に実行する |
+| `hc-hub detect` | 既知のエージェントが起動できるかを JSON で出す。書き込みはしない |
+| `hc-hub init --lane <L> --approval auto\|manual --preset … --role …` | 選ばれた内容から `.hc-hub.yml` を新規に書く |
 | `hc-hub resolve --lane <L> --hub` | hub の解決結果を JSON で出す。`--preset <p>`（動的な worker）、`--agent <名>`（常駐 agent）も同様 |
 | `hc-hub residents --lane <L>` | レーンの常駐 agent 名を JSON 配列で出す |
 | `hc-hub ledger append --lane <L> --name <名> --address <t> --event spawn\|stop\|adopt --hub <hub のアドレス> [--preset …] [--command-json …] [--template …] [--brief …] [--hc <hc のパス>]` | 台帳へ 1 行追記する。自分が `<L>` の hub（`hc get` の自分のラベルが `hc-hub.lane=<L>` かつ `hc-hub.role=hub`）でなければエラー |

@@ -1,23 +1,24 @@
 # roster の雛形。ここに書いたパス（rules・role_def）は雛形であり、実在を前提にしない。
 # 使うときは自分の repo の直下に .hc-hub.yml として置き、パスを実在のものに直す。
 # roster 内の相対パスは、この roster ファイルのあるディレクトリが基準。
+# 規律のファイルは git で管理する hc-hub-rules/ に置く。.hc-hub/ は台帳などの非追跡の置き場で、規律のファイルは置かない。
 presets:
-  impl:     { role: 実装,       command: [claude],             rules: [.hc-hub/worker-boundary.md] }
-  reviewer: { role: 独立 review, command: [codex, --no-daemon], rules: [.hc-hub/reviewer-boundary.md] }
+  impl:     { role: 実装,       command: [claude],             rules: [hc-hub-rules/worker-boundary.md] }
+  reviewer: { role: 独立 review, command: [codex, --no-daemon], rules: [hc-hub-rules/reviewer-boundary.md] }
   advisor:  { role: 設計相談,   template: advisor }
 
 defaults:
-  rules: [.hc-hub/lane-scope.md]
+  rules: [hc-hub-rules/lane-scope.md]
   approval: auto        # auto | manual
 
 ledger: .hc-hub/ledger.jsonl
 
 lanes:
   backend:
-    rules: [.hc-hub/backend-scope.md]       # このレーンの全員（hub と worker）に効く
-    hub: { rules: [.hc-hub/merge-gate.md] } # このレーンの hub だけに効く
+    rules: [hc-hub-rules/backend-scope.md]       # このレーンの全員（hub と worker）に効く
+    hub: { rules: [hc-hub-rules/merge-gate.md] } # このレーンの hub だけに効く
     agents: {}          # 常駐させたい agent だけ。例: { backend-rev: { preset: reviewer } }
   frontend:
     approval: manual    # レーン単位の上書きの例
-    hub: { rules: [.hc-hub/merge-gate.md] }
+    hub: { rules: [hc-hub-rules/merge-gate.md] }
     agents: {}

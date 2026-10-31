@@ -2,11 +2,28 @@
 
 スキル本体はエージェント固有の分岐を持たない。どのエージェントで worker を起こすかは、roster の preset・個別エントリの `command`（argv の配列）か `template`（hc の template 名）のどちらか一方で選ぶ。両方ある・どちらも無い場合はエラー。
 
-ここに書くのは、エージェントごとに違うこと。入力待ちに答えるキー、`blocked` を報告するか、必須の引数。確かめたのは Claude Code と opencode（対話の画面の起動のみ）。当面は worker を Claude に統一しており、Codex は測っていない。
+ここに書くのは、エージェントごとに違うこと。入力待ちに答えるキー、`blocked` を報告するか、必須の引数。確かめたのは Claude Code・opencode・Devin（下の一覧と各節に、測った範囲を書く）。当面は worker を Claude に統一しており、Codex は測っていない。
 
 **`command` は core から見つかる必要がある。** hc の core の PATH は、hub のシェルの PATH と違うことがある（実測: `~/.opencode/bin` の opencode は hub のシェルから見えたが、core からは見えなかった）。core から見つからないと `hc run` が `spawn_failed: cannot start "<コマンド>"` で失敗する。`hc-hub validate` と `hc-hub spawn-argv` はこの不一致を検出できない。直し方は 2 つ。roster の `command` の先頭を絶対パスにするか、core の PATH にそのディレクトリを入れる（[failure-modes.md](failure-modes.md)）。
 
 **`status` はオブジェクト。** `hc get --json` の `status` は `{"app":…,"msg":…,"state":"working"}` の形で、状態は `.status.state` で読む。`turn` は最初のターンが終わるまで 0 で、それが正常。状態を報告しない（`.status` が `null`）という結論は、待ってから 1 回見た値では出さず、間を置いた複数回の観測で出す（試運転では、60 秒待った後の 1 回の観測で「報告しない」と誤判定した）。
+
+## 既知のエージェントの一覧
+
+`hc-hub detect` と `hc-hub init` が持つ一覧（CLI の `catalog.py` と同じ内容）。新しいエージェントは、実測してからここと CLI の両方に足す。`init` が roster の `command` に書く argv は、この表の「起動の argv」そのまま。
+
+| 名前 | 起動の argv | 状態の報告 | 最初の依頼の渡し方 |
+|---|---|---|---|
+| claude | `claude` | 実測済み | 位置引数（実測済み） |
+| opencode | `opencode --prompt` | 実測済み | `--prompt` の値（実測済み） |
+| devin | `devin` | 実測済み（2026-10-31） | 未測定（`hc send` で届くことは実測済み） |
+| codex | `codex --no-daemon` | 未測定 | 未測定 |
+| copilot | `copilot` | 未測定 | 未測定 |
+| pi | `pi` | 未測定 | 未測定 |
+
+- `hc-hub spawn-argv` は、最初の依頼を argv の末尾に足す。「最初の依頼の渡し方」が未測定のエージェントは、この形で依頼が届くかが分からない
+- 未測定のエージェントも選べる。ただし `detect` の出力と、hub が人に示す提案に、どの列が未測定かを明示する
+- 注記: opencode は位置引数がディレクトリと解釈される。Devin は承認待ちの状態と、`--permission-mode` を省いたときの挙動が未測定。Codex の `--no-daemon` は hc の手引き（`hc --skill`）による
 
 ## 起動直後の検査
 
@@ -34,6 +51,15 @@ opencode v2.2.5 で確かめたこと（2026-10-31。対話の画面の起動だ
 - `sh -c "opencode run … | tee"` のように包んで起こすと、agent は `sh` として見え、`.status` は `null` のままになる。状態を報告させるには、包まずに起こす
 - `opencode` が core の PATH に無いと起動できない。上の「`command` は core から見つかる必要がある」に従う
 
+## Devin
+
+hc 0.1.15・Devin CLI v3000.11.234 で確かめたこと（2026-10-31。対話の画面の起動と、状態の報告・`hc send`・`hc read` まで）。
+
+- 状態を報告する（`status.app` が `devin`）。ターンを終えると `idle` から `done` に変わる
+- `hc send` で依頼が届く
+- `hc read` の画面に context の使用率が出る（例: `Context: 29k / 200k tokens (14%)`）。交代判定の観測に使える（[context-and-handover.md](context-and-handover.md)）
+- 承認待ちの状態の報告と、答えるキーは未測定。`--permission-mode` を省いたときの挙動も未測定。最初の依頼を argv で渡せるかも未測定なので、`spawn-argv` の末尾に足す形で届くかは分からない
+
 ## Codex
 
 この版では測っていない。分かっているのは hc の手引き（`hc --skill`）に書かれた次の 1 点だけ。
@@ -52,4 +78,4 @@ opencode v2.2.5 で確かめたこと（2026-10-31。対話の画面の起動だ
 4. 信頼の確認のように、状態が `null` のまま止まる画面が無いかを、未信頼の cwd で起こして確かめる
 5. この節に、測った日・hc のバージョンとともに、見出しを 1 つ立てて書く。測っていないことは「未測定」と書く
 
-例（旧来の `herdr` の運用で知られていたことで、hc では未測定）: Devin は `--permission-mode` を省略すると auto で起き、tool の承認待ちで黙って停止する。`-- --permission-mode dangerous` を付けるとプロジェクトの deny list まで auto-approve する。deny を維持するなら hook 側で塞ぐ。
+例（Codex の節）: 起動に必要な引数（`--no-daemon`）は hc の手引きから分かるが、`blocked` を報告するか、入力待ちに答えるキーは測っていないので「未測定」と書いてある。
