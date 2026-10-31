@@ -128,19 +128,26 @@ def probe_core(hc: str, executables: Sequence[str], cwd: Path) -> dict[str, bool
     if not isinstance(address, str) or not address:
         msg = f"hc run の応答に address が無い: {started}"
         raise ProbeError(msg)
+    rm_error: ProbeError | None = None
     try:
         _check_ended(hc, address)
         result = _parse(_hc(hc, ["read", address]), nonce, names)
-    except ProbeError as body_error:
+    except BaseException as body_error:
+        # 本体の例外を優先し、rm の失敗は添えるだけにする
         try:
             _hc(hc, ["rm", address])
-        except ProbeError as rm_error:
-            msg = f"{body_error}（さらに端末 {address} の hc rm も失敗: {rm_error}）"
-            raise ProbeError(msg) from body_error
+        except ProbeError as e:
+            note = f"さらに端末 {address} の hc rm も失敗: {e}"
+            if isinstance(body_error, ProbeError):
+                msg = f"{body_error}（{note}）"
+                raise ProbeError(msg) from body_error
+            body_error.add_note(note)
         raise
     try:
         _hc(hc, ["rm", address])
-    except ProbeError as rm_error:
+    except ProbeError as e:
+        rm_error = e
+    if rm_error is not None:
         msg = f"probe の端末 {address} を hc rm で消せなかった: {rm_error}"
         raise ProbeError(msg) from rm_error
     return result

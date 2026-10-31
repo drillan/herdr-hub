@@ -64,3 +64,17 @@ def test_script_checks_names_one_by_one(tmp_path: Path) -> None:
     probe_core(fake, ["claude", "opencode", "devin"], tmp_path)
     script = (tmp_path / "script.sh").read_text()
     assert script.count("command -v") == 3
+
+
+def test_probe_core_removes_on_unexpected_exception(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*_args: object) -> dict[str, bool]:
+        msg = "boom"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr("hc_hub_lib.probe._parse", boom)
+    fake = _fake(tmp_path)
+    with pytest.raises(RuntimeError, match="boom"):
+        probe_core(fake, ["claude"], tmp_path)
+    assert "t90" in (tmp_path / "rm.log").read_text()
