@@ -92,7 +92,7 @@ hub 自身の交代は人が手で行う。前任が引き継ぎを書いてか�
 
 ### 引き継いだ worker の見張り
 
-引き継いだ worker は後任の子ではないので、hc の自動の通知も `hc wait --children` も後任には届かない。引き継いだ worker ごとに `hc-hub guard --op wait <t>` の後に `hc wait <t>` をバックグラウンドで並べる（親でない hub の `hc wait` が `blocked` で返ることは実測済み）。`hc wait --children any` は自分の子だけを待つので、引き継いだ worker はそちらに含めず、自分の子が 0 件ならその段は打たない。バックグラウンドの `hc wait <t>` が `reason: timeout` で終わったら、全員の見回りはせず、同じ `hc wait <t>` を張り直す。状態の知らせで返ったときだけ状態を取り直す。ループを抜けるのは、自分の子も引き継いだ worker も残っていないとき（待機の作法は [messaging.md](messaging.md)）。
+引き継いだ worker は後任の子ではないので、hc の自動の通知も `hc wait --children` も後任には届かない。引き継いだ worker のうち `hc get` の状態が `working` のものごとに `hc-hub guard --op wait <t>` の後に `hc wait <t>` をバックグラウンドで並べる（idle の worker には張らず、次の依頼を送ったときに張る）（親でない hub の `hc wait` が `blocked` で返ることは実測済み）。`hc wait --children any` は自分の子だけを待つので、引き継いだ worker はそちらに含めず、自分の子が 0 件ならその段は打たない。バックグラウンドの `hc wait <t>` が `reason: timeout` で終わったら、全員の見回りはせず、同じ `hc wait <t>` を張り直す。状態の知らせで返ったときだけ状態を取り直す。ループを抜けるのは、`working` の自分の子も引き継いだ worker も無いとき（待機の作法は [messaging.md](messaging.md)）。
 
 ### hub がいない間の限界
 

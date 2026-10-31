@@ -33,17 +33,17 @@ hub は人の承認を求めずに worker を起こす。そのぶん、起こ�
 
 手順は 2 段で、段の間で終了コードを確かめる。`spawn-argv` をパイプやプロセス置換の中に入れると、失敗の終了コードが捨てられ、空の引数で `hc` を打つことになる。
 
-1. `spawn-argv` を単独で打ち、結果をファイルに受ける。終了コードが 0 でなければ、ここで止まる（理由は標準エラーに出る。ファイルは使わない）。`.hc-hub/` は台帳と同じく非追跡の置き場
+1. `spawn-argv` を単独で打ち、結果をファイルに受ける。終了コードが 0 でなければ、ここで止まる（理由は標準エラーに出る。ファイルは使わない）。`.hc-hub/` は台帳と同じく roster のディレクトリにある非追跡の置き場（hub の cwd に依らない）。依頼が `-` で始まるときは `--task="<最初の依頼>"` の形で渡す（`--task "-x"` はオプションと読まれて止まる）
 
    ```bash
    hc-hub spawn-argv --lane <L> --preset <preset> --name <名前> --cwd <worktree の絶対パス> \
-     --task "<最初の依頼>" [--brief <依頼ファイルのパス>] > .hc-hub/argv-<名前>.json
+     --task "<最初の依頼>" [--brief <依頼ファイルのパス>] > <roster のディレクトリ>/.hc-hub/argv-<名前>.json
    ```
 
 2. 終了コードが 0 だったときだけ、配列に展開して `hc` に渡す。配列が空なら `hc` を打たない
 
    ```bash
-   readarray -d '' -t ARGV < <(jq -j '.[] + "\u0000"' .hc-hub/argv-<名前>.json) && test "${#ARGV[@]}" -gt 0 && hc "${ARGV[@]}"
+   readarray -d '' -t ARGV < <(jq -j '.[] + "\u0000"' <roster のディレクトリ>/.hc-hub/argv-<名前>.json) && test "${#ARGV[@]}" -gt 0 && hc "${ARGV[@]}"
    ```
 
 - `spawn-argv` は `hc` に続く引数を JSON の配列で出す。要素の順序も中身も変えずに渡す

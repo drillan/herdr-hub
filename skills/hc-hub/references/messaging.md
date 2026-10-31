@@ -44,15 +44,15 @@
 
 したがって、待機ループは次の形にする。
 
-1. **待つ相手を決める。**
-   - 自分の子が 1 件以上いるなら `hc wait --children any` を走らせる。自分の子が 0 件なら、この段は打たない（子が 0 件だと待たずに即座に返り、空回りする）
-   - 引き継いだ worker（親が前任）は、worker ごとに `hc-hub guard --op wait <t>` の後に `hc wait <t>` をバックグラウンドで並べる（親でない hub の `hc wait` が `blocked` で返ることは実測済み）
+1. **待つ相手を決める。** 待つのは `hc get` の状態が `working` のものだけ。idle（`done` など）の worker に待ちを張らない（`hc wait <t>` は「止まるまで」待つので、すでに止まっている相手だと即座に返り、空回りする恐れがある。idle の相手に張ったときの挙動は未測定）。idle の worker に次の依頼を送ったら、そのときに待ちを張る
+   - `working` の自分の子が 1 件以上いるなら `hc wait --children any` を走らせる。いなければ、この段は打たない（子が 0 件だと待たずに即座に返る。実測）
+   - `working` の引き継いだ worker（親が前任）は、worker ごとに `hc-hub guard --op wait <t>` の後に `hc wait <t>` をバックグラウンドで並べる（親でない hub の `hc wait` が `blocked` で返ることは実測済み）
 2. **返った `reason` で分ける。**
    - **`reason: timeout`** → 全員の見回りをしない。待ち直すだけ（上の段 1 をもう一度）。`hc ls`・`hc get`・`hc read` による取り直しは、状態の知らせで返ったときだけ行う。バックグラウンドの `hc wait <t>` が timeout で終わったときは、同じ `hc wait <t>` を張り直す
    - **`reason: message`**（人や他レーンの hub からの入力が自分に届いた）→ その入力を読んで扱ってから、待ち直す
    - **状態の知らせ**（`reason: children` か `status`。子のターン終了・`blocked`・エラー・exit、またはバックグラウンドの `hc wait <t>` の戻り）→ 次の段 3 へ
 3. **状態を取り直す。** `hc ls --label hc-hub.lane=<L>` と `hc get` で全 worker の状態を取り直す。戻り値だけで子の完了を数えない（通知は取りこぼされうる。完了済みの子は報告されない）。返ったあとは `hc read` で画面を読み、宣言だけで終わったか完了かを見分ける
-4. **ループを抜ける条件は、自分の子も、引き継いだ worker も残っていないこと。** ここで数えるのは、`hc-hub.lane=<L>` を持ち `hc-hub.role` が hub でないターミナル（worker と常駐 agent。hub 自身は含めない）で、`state` が live のもの。idle のまま live の worker は数えるので、止める（`hc kill` → `hc rm`）までループは続く
+4. **ループを抜ける条件は、待つ相手（`working` の自分の子と引き継いだ worker）が 1 件も無いこと。** 数えるのは、`hc-hub.lane=<L>` を持ち `hc-hub.role` が hub でない live なターミナル（worker と常駐 agent。hub 自身は含めない）のうち `working` のもの。idle のまま live の worker は待たずに残してよい。抜けたら着地の判断（下の節）に進み、要らない worker は止める（`hc kill` → `hc rm`）。人や他レーンの hub からの入力は、hub のターンを起こすので取りこぼさない
 
 **合図は「画面を読め」の合図であって、完了の証拠ではない。** 状態が `idle`・`done` であることを確かめてから `hc read` で回収する（`working` なら背景で待つ）。
 

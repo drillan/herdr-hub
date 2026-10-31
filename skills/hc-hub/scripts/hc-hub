@@ -158,6 +158,9 @@ def _check_append_args(args: argparse.Namespace, roster: Roster) -> None:
         if not getattr(args, flag):
             msg = f"--{flag} は空でない文字列"
             raise LedgerError(msg)
+    if args.template is not None and not args.template:
+        msg = "--template は空でない文字列"
+        raise LedgerError(msg)
     if args.preset is not None and args.preset not in roster.raw.get("presets", {}):
         msg = f"--preset {args.preset!r} は roster に定義された preset でない"
         raise RosterError(msg)
@@ -177,7 +180,11 @@ def run_ledger(args: argparse.Namespace) -> None:
     _check_append_args(args, roster)
     command = _parse_command_json(args.command_json)
     # 他レーンの台帳記録を防ぐため、自分がそのレーンの hub であることを確かめる
-    require_lane_hub(get_labels(args.hc, terminal_id(os.environ)), args.lane)
+    me = terminal_id(os.environ)
+    require_lane_hub(get_labels(args.hc, me), args.lane)
+    if args.hub != me:
+        msg = f"--hub {args.hub!r} が自分のアドレス {me!r} と違う"
+        raise LedgerError(msg)
     append_event(
         roster.ledger,
         LedgerEvent(

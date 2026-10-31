@@ -175,22 +175,22 @@ def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
 def _append_cli(
     roster: Path,
     labels: dict[str, str] | None,
-    overrides: dict[str, str],
+    overrides: dict[str, str | None],
     *extra: str,
 ) -> subprocess.CompletedProcess[str]:
     hc = make_fake_hc(
         roster.parent, {} if labels is None else {"t5": {"labels": labels}}, []
     )
-    values = {
+    values: dict[str, str | None] = {
         "--lane": "be",
         "--name": "w",
         "--address": "tab:1",
         "--event": "spawn",
-        "--hub": "h",
+        "--hub": "t5",
         "--command-json": '["claude"]',
     }
     values.update(overrides)
-    flat = [x for pair in values.items() for x in pair]
+    flat = [x for k, v in values.items() if v is not None for x in (k, v)]
     return fake_run_cli(
         "ledger", "append", "--roster", str(roster), "--hc", str(hc), *flat, *extra,
         env_extra={"HC_TERMINAL_ID": "t5"},
@@ -203,7 +203,7 @@ def _append(roster: Path, lane: str, name: str, *extra: str) -> None:
     p = fake_run_cli(
         "ledger", "append", "--roster", str(roster), "--hc", str(hc),
         "--lane", lane, "--name", name, "--address", "tab:1",
-        "--event", "spawn", "--hub", "h", *extra,
+        "--event", "spawn", "--hub", "t5", *extra,
         env_extra={"HC_TERMINAL_ID": "t5"},
     )  # fmt: skip
     assert p.returncode == 0, p.stderr
@@ -355,3 +355,19 @@ def test_read_rejects_launch_rule_violations(tmp_path: Path, line: str) -> None:
     p.write_text(line)
     with pytest.raises(LedgerError, match="1"):
         read_events(p)
+
+
+def test_cli_append_rejects_hub_other_than_self(tmp_path: Path) -> None:
+    p = _append_cli(_roster(tmp_path), HUB_LABELS, {"--hub": "t9"})
+    assert p.returncode == 2
+    assert "--hub" in p.stderr
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
+def test_cli_append_rejects_empty_template(tmp_path: Path) -> None:
+    p = _append_cli(
+        _roster(tmp_path), HUB_LABELS, {"--command-json": None, "--template": ""}
+    )
+    assert "--template" in p.stderr
+    assert p.returncode == 2
+    assert not (tmp_path / "ledger.jsonl").exists()

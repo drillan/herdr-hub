@@ -43,7 +43,7 @@ def require_lane_hub(self_labels: Mapping[str, str], lane: str) -> None:
     if self_labels[LANE] != lane:
         msg = (
             f"自分のレーンは {self_labels[LANE]!r} で、{lane!r} ではない。"
-            "自分のレーンの worker だけ起こせる"
+            "自分のレーンでしか起動・記録できない"
         )
         raise SpawnError(msg)
 
