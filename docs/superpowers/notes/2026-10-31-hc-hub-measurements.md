@@ -13,7 +13,7 @@
 ### 1. `hc wait --children any` はターン終了で返るか: 返る
 
 - コマンド: `hc run --bg --name m-claude --cwd <worktree> claude "Bash で sleep 25 を実行し、終わったら ok とだけ返事して"` → `hc wait --children any --timeout 90`
-- 結果: 約 2 秒で返った。`{"children":[{"reason":"status","status":"done","terminal":"t17","turn":1,"ended":true}],"reason":"children",…}`
+- 結果: 依頼の sleep 25 より早く返った（所要時間は計測していない）。`{"children":[{"reason":"status","status":"done","terminal":"t17","turn":1,"ended":true}],"reason":"children",…}`
 - この worker は「sleep 25 はバックグラウンドで実行中です。終わったら ok と返します」と宣言してターンを終え（画面末尾 `1 shell still running`）、status は `done`。つまり spec が懸念した「再開すると宣言しただけでターンを終える止まり方」も `wait --children any` で拾える。
 - 影響: Task 6 は worker ごとの `hc wait <t>` を走らせる代替手順にしなくてよい。ただし返ったあとは画面を読み、宣言だけで終わったか完了かを見分ける。
 - 追試（完了済みの子が残っているときの `wait --children any`）: 使い捨ての子を 2 つ起こし（`hc run --bg --name f-a sh -c "sleep 2"` と `hc run --bg --name f-b sh -c "sleep 40"`）、f-a が終わった後に `hc wait --children any --timeout 10` を 3 回続けて実行した。
@@ -69,8 +69,8 @@
 - 確かめたこと: `hc run --bg --name X claude "<依頼>"` のように command 起動で依頼を argv に渡したとき、`<hc from=… reach=…>` のタグと `first_message` が付くか。
 - コマンド: 上の項目 1・4 で使った `hc run --bg --name m-claude --cwd <worktree> claude "<依頼>"` など。
 - 結果: タグは付かず、`first_message` も返らない。依頼は argv そのままの文字列として claude の最初の入力になる。`hc run` の出力は `{"address","agent","cwd","name","parent","state","turn"}` のみ。後続の `hc send` は `<hc from="t7">…</hc>` のタグが付くが、`reach=` は付かない。`reach=` が付かないのは送り手が親でないためだと推定している（未検証。親からの `hc send` では測っていない）。タグ付きで届くのは template 経由（`hc run <template> "<依頼>"`）と `hc --skill` の記述から読めるが、template では未実測。
-- spec との差: spec 4.x（109 行目）はすでに `first_message.sent` を template 起動に限っている。したがって spec と違うのは、command 起動の依頼に `<hc from=… reach=…>` のタグが付くと想定していた点だけ。
-- 影響: Task 7（startup.md の briefing に hub のアドレスを書く）。報告の宛先（`hc send <hub> …`）はタグから得られないので、briefing に hub のアドレスを自分で書く。依頼が届いた確認は `first_message` ではなく、`hc get` の状態遷移で行う（spec 4.x の通り）。
+- spec との差: spec 4.5（109 行目）はすでに `first_message.sent` を template 起動に限っている。したがって spec と違うのは、command 起動の依頼に `<hc from=… reach=…>` のタグが付くと想定していた点だけ。
+- 影響: Task 7（startup.md の briefing に hub のアドレスを書く）。報告の宛先（`hc send <hub> …`）はタグから得られないので、briefing に hub のアドレスを自分で書く。依頼が届いた確認は `first_message` ではなく、`hc get` の状態遷移で行う（spec 4.5 の通り）。
 
 ### 9. `herdr.space` だけを付けた worker の新しい tab: 保留（開発者の了承待ち）
 
