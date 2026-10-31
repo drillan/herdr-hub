@@ -194,3 +194,14 @@ def test_probe_core_rejects_relative_or_unsafe_paths(tmp_path: Path, bad: str) -
     fake = _fake(tmp_path)
     with pytest.raises(ProbeError, match="扱えない"):
         probe_core(fake, [bad], tmp_path)
+
+
+def test_probe_core_absolute_path_requires_executable_file(tmp_path: Path) -> None:
+    fake = _fake(tmp_path)
+    plain = tmp_path / "plain"
+    plain.write_text("")
+    plain.chmod(0o644)
+    directory = tmp_path / "adir"
+    directory.mkdir()
+    result = probe_core(fake, [str(plain), str(directory)], tmp_path)
+    assert result == {str(plain): False, str(directory): False}

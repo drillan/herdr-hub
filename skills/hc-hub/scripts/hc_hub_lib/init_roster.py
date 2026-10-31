@@ -6,11 +6,13 @@ from typing import Any
 import yaml
 
 from hc_hub_lib.catalog import find_agent
-from hc_hub_lib.probe import login_shell, probe_shell
+from hc_hub_lib.probe import is_probeable_path, login_shell, probe_shell
 from hc_hub_lib.roster import Roster, load_roster_text, resolve_worker
 
 ROSTER_NAME = ".hc-hub.yml"
 LEDGER_PATH = ".hc-hub/ledger.jsonl"
+# shebang の行として読む上限。長い 1 行のファイルを丸ごと読まない
+SHEBANG_LIMIT = 256
 
 
 class InitError(Exception):
@@ -120,8 +122,41 @@ def shell_abs_paths(names: Sequence[str], presets: Mapping[str, str]) -> dict[st
                 f"（command -v の結果: {output!r}。alias・関数か、見つからない）"
             )
             raise InitError(msg)
+        if not is_probeable_path(output):
+            msg = (
+                f"--abs-path {name}: 絶対パス {output!r} に扱えない文字がある"
+                "（使えるのは英数字と ._/+-）。core の PATH を直す"
+            )
+            raise InitError(msg)
         paths[name] = output
     return paths
+
+
+def script_interpreter(path: str) -> str | None:
+    # `#!/usr/bin/env node` のスクリプトは、core の PATH に node が無いと起動で失敗する
+    try:
+        with Path(path).open("rb") as f:
+            head = f.readline(SHEBANG_LIMIT)
+    except OSError as e:
+        msg = f"{path} を読めない: {e}"
+        raise InitError(msg) from e
+    if not head.startswith(b"#!"):
+        return None
+    try:
+        tokens = head[2:].decode("utf-8").split()
+    except UnicodeDecodeError as e:
+        msg = f"{path} の shebang が UTF-8 でない: {head!r}"
+        raise InitError(msg) from e
+    if not tokens:
+        msg = f"{path} の shebang が空"
+        raise InitError(msg)
+    if Path(tokens[0]).name != "env":
+        return tokens[0]
+    rest = [t for t in tokens[1:] if not t.startswith("-")]
+    if not rest:
+        msg = f"{path} の shebang からインタープリターが読めない: {head!r}"
+        raise InitError(msg)
+    return rest[0]
 
 
 def write_exclusive(path: Path, text: str) -> None:

@@ -158,7 +158,7 @@ hc-hub init --lane <L> --approval auto|manual \
 - エージェント名は既知の一覧にあるものだけ。選ばれたエージェントが hc の端末の中で見つかるかを、`init` が改めて確かめる（`detect` を飛ばした場合への備え）
 - `.hc-hub.yml` は新規に作る。既にあれば上書きせずエラーで止まる。書く前に、書き出す内容を `validate` と同じ検査にかけ、通らなければ何も書かない。`.gitignore` に追記できるか（ディレクトリ・壊れたシンボリックリンク・UTF-8 でない・書き込み不可でないか）と、`.hc-hub.yml` 自体が git の除外設定で無視されていないか（無視されると worker の worktree に届かないのでエラーにする）も、書く前に確かめる。既に `.hc-hub.yml` があるときは、使い捨ての端末を起こす前に止まる。書いた後にしか分からない失敗（追記したのに `/.hc-hub/` が無視されない、など）は、`.hc-hub.yml` を書いたこと、`.gitignore` を直せば足りることをエラーに添える
 - 書く場所は cwd の `.hc-hub.yml` で、`--roster` は持たない。`command` は一覧の argv をそのまま使う
-- `--abs-path <preset 名>`（繰り返せる。`--preset` に無い名前・重複はエラー）を付けた preset だけ、argv の先頭を絶対パスに置き換える。絶対パスは人に打たせず、`detect` と同じくログインシェルの `command -v` から取る（対話シェルを起こすのはこのときだけ）。結果が絶対パスでなければ（alias・関数・見つからない）エラー。書く前に、その絶対パスで hc の端末から起動できるかも確かめる。出力の `absolute_paths` に preset 名と書いたパスを出し、`next` で「このマシンの絶対パスなので、別のマシンでは書き直す」と伝える。roster は commit して共有するので、絶対パスを書くかは人が決める
+- `--abs-path <preset 名>`（繰り返せる。`--preset` に無い名前・重複はエラー）を付けた preset だけ、argv の先頭を絶対パスに置き換える。絶対パスは人に打たせず、`detect` と同じくログインシェルの `command -v` から取る（対話シェルを起こすのはこのときだけ）。結果が絶対パスでなければ（alias・関数・見つからない）エラー。書く前に、その絶対パスが hc の端末の中で実行できるファイルかを確かめる。スクリプトなら、shebang のインタープリター（`#!/usr/bin/env node` の `node` など）が hc の端末の中で見つかるかも確かめ、無ければエラーにする。パスに使えるのは英数字と `._/+-` だけで、ほかの文字があればエラー。出力の `absolute_paths` に preset 名と書いたパスを出し、`next` で「このマシンの絶対パスなので、別のマシンでは書き直す」と伝える。roster は commit して共有するので、絶対パスを書くかは人が決める
 - `--abs-path` が無く、hc の端末の中で見つからないエージェントがあれば、エラーで止まり、PATH を直すか `--abs-path` を使うかを案内する
 
 **probe の端末。** `detect`・`init` は、起動できるかを確かめる使い捨ての端末を `hc-hub-probe-<pid>` の名前、`hc-hub.role=probe` のラベルで起こす。[lanes.md](lanes.md) の「ラベルの無い宛先は操作しない」の例外として、CLI が自分で起こしたこの端末だけは、CLI の中で `wait`・`read`・`rm` してよい。端末は成功してもエラーでも消す。hub や worker がこのラベルの端末を手で操作することはしない。
@@ -173,7 +173,7 @@ hc-hub init --lane <L> --approval auto|manual \
 |---|---|
 | `hc-hub validate` | roster を検証する。書いた直後と、起動の前に実行する |
 | `hc-hub detect` | 既知のエージェントが起動できるかを JSON で出す。書き込みはしない |
-| `hc-hub init --lane <L> --approval auto\|manual --preset … --role …` | 選ばれた内容から `.hc-hub.yml` を新規に書く |
+| `hc-hub init --lane <L> --approval auto\|manual --preset … --role … [--abs-path <preset 名> …]` | 選ばれた内容から `.hc-hub.yml` を新規に書く |
 | `hc-hub resolve --lane <L> --hub` | hub の解決結果を JSON で出す。`--preset <p>`（動的な worker）、`--agent <名>`（常駐 agent）も同様 |
 | `hc-hub residents --lane <L>` | レーンの常駐 agent 名を JSON 配列で出す |
 | `hc-hub ledger append --lane <L> --name <名> --address <t> --event spawn\|stop\|adopt --hub <hub のアドレス> [--preset …] [--command-json …] [--template …] [--brief …] [--hc <hc のパス>]` | 台帳へ 1 行追記する。自分が `<L>` の hub（`hc get` の自分のラベルが `hc-hub.lane=<L>` かつ `hc-hub.role=hub`）でなければエラー |

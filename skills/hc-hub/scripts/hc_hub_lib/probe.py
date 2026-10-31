@@ -45,11 +45,18 @@ def _parse_object(out: str, args: list[str]) -> dict[str, object]:
     return payload
 
 
+def _found_test(name: str) -> str:
+    q = shlex.quote(name)
+    if name.startswith("/"):
+        # command -v は絶対パスなら存在しか見ないので、実行できる通常のファイルかを見る
+        return f"[ -f {q} ] && [ -x {q} ]"
+    return f"command -v {q} >/dev/null 2>&1"
+
+
 def _build_script(nonce: str, names: Sequence[str]) -> str:
     # dash の `command -v a b c` は最初の名前しか調べないので、名前ごとに 1 回呼ぶ
     lines = [
-        f'if command -v {shlex.quote(n)} >/dev/null 2>&1; then echo "{nonce} {n} 1"; '
-        f'else echo "{nonce} {n} 0"; fi'
+        f'if {_found_test(n)}; then echo "{nonce} {n} 1"; else echo "{nonce} {n} 0"; fi'
         for n in names
     ]
     lines.append(f'echo "{nonce} END"')
@@ -162,6 +169,10 @@ def probe_core(hc: str, executables: Sequence[str], cwd: Path) -> dict[str, bool
 
 
 SUPPORTED_SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh"})
+
+
+def is_probeable_path(path: str) -> bool:
+    return _ABS_PATH_RE.fullmatch(path) is not None
 
 
 def _check_names(executables: Sequence[str]) -> list[str]:

@@ -11,6 +11,7 @@ from hc_hub_lib.init_roster import (
     check_presets,
     parse_pairs,
     render_roster,
+    script_interpreter,
     write_exclusive,
 )
 from hc_hub_lib.roster import RosterError, load_roster, load_roster_text
@@ -259,7 +260,20 @@ def _shell_home(tmp_path: Path, rc: str) -> dict[str, str]:
     home.mkdir()
     for name in (".profile", ".zshrc"):
         (home / name).write_text(rc)
-    return {"HOME": str(home), "ZDOTDIR": str(home)}
+    # HOME を変えると uv がキャッシュと Python を見失うので、元の場所を明示する
+    uv_dirs = {
+        key: subprocess.run(
+            ["uv", *args],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        for key, args in (
+            ("UV_CACHE_DIR", ["cache", "dir"]),
+            ("UV_PYTHON_INSTALL_DIR", ["python", "dir"]),
+        )
+    }
+    return {"HOME": str(home), "ZDOTDIR": str(home), **uv_dirs}
 
 
 def _shell_only_opencode(tmp_path: Path) -> Path:
@@ -365,4 +379,94 @@ def test_init_abs_path_rejects_unknown_or_duplicate(
     )  # fmt: skip
     assert result.returncode == 2
     assert reason in result.stderr
+    assert not (repo / ".hc-hub.yml").exists()
+
+
+def _shell_only_script(tmp_path: Path, name: str, body: str, *, mode: int) -> Path:
+    shbin = tmp_path / "shbin"
+    shbin.mkdir(exist_ok=True)
+    exe = shbin / name
+    exe.write_text(body)
+    exe.chmod(mode)
+    return exe
+
+
+def test_init_abs_path_rejects_missing_env_interpreter(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    exe = _shell_only_script(tmp_path, "codex", "#!/usr/bin/env node\n", mode=0o755)
+    env = _shell_home(tmp_path, f'PATH="{exe.parent}:$PATH"\n')
+    result = _init_env(
+        repo, fake, env,
+        "--lane", "be", "--approval", "manual",
+        "--preset", "cx=codex", "--role", "cx=review",
+        "--abs-path", "cx",
+    )  # fmt: skip
+    assert result.returncode == 2
+    assert "node" in result.stderr
+    assert not (repo / ".hc-hub.yml").exists()
+
+
+def test_init_abs_path_accepts_env_interpreter_on_core_path(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    node = tmp_path / "bin" / "node"
+    node.write_text("#!/bin/sh\n")
+    node.chmod(0o755)
+    exe = _shell_only_script(
+        tmp_path, "codex", "#!/usr/bin/env -S node --flag\n", mode=0o755
+    )
+    env = _shell_home(tmp_path, f'PATH="{exe.parent}:$PATH"\n')
+    result = _init_env(
+        repo, fake, env,
+        "--lane", "be", "--approval", "manual",
+        "--preset", "cx=codex", "--role", "cx=review",
+        "--abs-path", "cx",
+    )  # fmt: skip
+    assert result.returncode == 0, result.stderr
+    roster = load_roster(repo / ".hc-hub.yml")
+    assert roster.raw["presets"]["cx"]["command"] == [str(exe), "--no-daemon"]
+
+
+@pytest.mark.parametrize(
+    ("head", "expected"),
+    [
+        (b"#!/usr/bin/env node\n", "node"),
+        (b"#!/usr/bin/env -S node --x\n", "node"),
+        (b"#!/bin/sh\n", "/bin/sh"),
+        (b"\x7fELF\x02", None),
+    ],
+)
+def test_script_interpreter_reads_shebang(
+    tmp_path: Path, head: bytes, expected: str | None
+) -> None:
+    f = tmp_path / "s"
+    f.write_bytes(head)
+    assert script_interpreter(str(f)) == expected
+
+
+@pytest.mark.parametrize("head", [b"#!\n", b"#!/usr/bin/env -S\n", b"#!\xff\n"])
+def test_script_interpreter_rejects_unreadable_shebang(
+    tmp_path: Path, head: bytes
+) -> None:
+    f = tmp_path / "s"
+    f.write_bytes(head)
+    with pytest.raises(InitError, match="shebang"):
+        script_interpreter(str(f))
+
+
+def test_init_abs_path_rejects_path_with_space(tmp_path: Path) -> None:
+    repo, fake = _setup(tmp_path)
+    shbin = tmp_path / "sh bin"
+    shbin.mkdir()
+    exe = shbin / "opencode"
+    exe.write_text("#!/bin/sh\n")
+    exe.chmod(0o755)
+    env = _shell_home(tmp_path, f'PATH="{shbin}:$PATH"\n')
+    result = _init_env(
+        repo, fake, env,
+        "--lane", "be", "--approval", "manual",
+        "--preset", "rev=opencode", "--role", "rev=review",
+        "--abs-path", "rev",
+    )  # fmt: skip
+    assert result.returncode == 2
+    assert "扱えない文字" in result.stderr
     assert not (repo / ".hc-hub.yml").exists()

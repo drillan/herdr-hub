@@ -185,7 +185,7 @@ herdr-core（CLI は `hc`）の上で、**レーンごとの hub** が複数の�
 
 - **herdr-core**（`hc` が PATH にあり、hub が `HC_TERMINAL_ID` を持つ端末の中で動くこと）
 - **`uv`**（同梱 CLI `hc-hub` の実行に使う）
-- 確かめたエージェントは Claude Code・opencode・Devin。Claude Code と opencode は状態の報告と最初の依頼の渡し方まで（opencode は `--prompt` で渡す）、Devin は状態の報告まで。Codex は測っていない
+- 確かめたエージェントは Claude Code・opencode・Devin。3 つとも状態の報告と最初の依頼の渡し方まで（opencode は `--prompt`、Devin は `--` の後ろで渡す）。Codex は測っていない
 - roster の `command` は、hc の core の PATH から見つかること。core の PATH はユーザーのシェルの PATH と違うことがあり、見つからないと `hc run` が `spawn_failed` で失敗する。core の PATH にあるディレクトリに置くか、core の PATH にディレクトリを足す
 
 ### インストール

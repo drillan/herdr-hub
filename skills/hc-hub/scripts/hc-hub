@@ -40,6 +40,7 @@ from hc_hub_lib.init_roster import (
     parse_pairs,
     render_roster,
     require_roster_absent,
+    script_interpreter,
     shell_abs_paths,
     write_exclusive,
 )
@@ -327,7 +328,19 @@ def run_init(args: argparse.Namespace, me: str) -> None:
         name: abs_paths.get(name, find_agent(agent).executable)
         for name, agent in presets.items()
     }
-    core = probe_core(args.hc, sorted(set(targets.values())), top)
+    interpreters = {}
+    for name, abs_path in abs_paths.items():
+        interp = script_interpreter(abs_path)
+        if interp is not None:
+            interpreters[name] = interp
+    core = probe_core(args.hc, sorted({*targets.values(), *interpreters.values()}), top)
+    no_interp = sorted(f"{n}（{i}）" for n, i in interpreters.items() if not core[i])
+    if no_interp:
+        msg = (
+            f"hc の端末の中でインタープリターが見つからない preset: {no_interp}。"
+            "スクリプトは起動できないので、core の PATH にインタープリターを足す"
+        )
+        raise InitError(msg)
     missing = sorted(name for name, target in targets.items() if not core[target])
     if missing:
         msg = (
