@@ -39,17 +39,24 @@
 - 子が 0 件になると、待たずに `"children":[]` で即座に返る
 - ターン終了で `done` になった子は `state: live` のまま対象に残る。**live のまま idle の子が、次の待機で再び報告されるかは未測定。**
 
+- `hc wait --children any` で待てるのは、`parent` が自分である子（自分が `hc run` で起こした worker）だけ。引き継いだ worker は親が前任なので対象外
+- 戻り値の `reason` は、子の知らせ（`--children any` では全体が `children`、`hc wait <t>` では `status`）・`message`（自分に入力された）・`timeout`（待ち時間が尽きた。実測）を区別する。`hc wait --help` では、`--timeout` の既定は設定の `wait_timeout`、無ければ 180 秒（待ちが尽きたら「見に来た」と返る）
+
 したがって、待機ループは次の形にする。
 
-1. `hc wait --children any` を走らせる
-2. 返るたびに、**`hc ls --label hc-hub.lane=<L>` と `hc get` で全 worker の状態を取り直す。** 戻り値だけで子の完了を数えない（通知は取りこぼされうる。完了済みの子は報告されない）。返ったあとは `hc read` で画面を読み、宣言だけで終わったか完了かを見分ける
-3. 子が 0 件になったら、ループを抜ける。ここで「子」は、`hc-hub.lane=<L>` を持ち `hc-hub.role` が hub でないターミナル（worker と常駐 agent。hub 自身は含めない）で、`state` が live のもの。idle のまま live の worker は子に数えるので、止める（`hc kill` → `hc rm`）までループは続く
+1. **待つ相手を決める。**
+   - 自分の子が 1 件以上いるなら `hc wait --children any` を走らせる。自分の子が 0 件なら、この段は打たない（子が 0 件だと待たずに即座に返り、空回りする）
+   - 引き継いだ worker（親が前任）は、worker ごとに `hc-hub guard --op wait <t>` の後に `hc wait <t>` をバックグラウンドで並べる（親でない hub の `hc wait` が `blocked` で返ることは実測済み）
+2. **返った `reason` で分ける。**
+   - **`reason: timeout`** → 全員の見回りをしない。待ち直すだけ（上の段 1 をもう一度）。`hc ls`・`hc get`・`hc read` による取り直しは、状態の知らせで返ったときだけ行う。バックグラウンドの `hc wait <t>` が timeout で終わったときは、同じ `hc wait <t>` を張り直す
+   - **`reason: message`**（人や他レーンの hub からの入力が自分に届いた）→ その入力を読んで扱ってから、待ち直す
+   - **状態の知らせ**（`reason: children` か `status`。子のターン終了・`blocked`・エラー・exit、またはバックグラウンドの `hc wait <t>` の戻り）→ 次の段 3 へ
+3. **状態を取り直す。** `hc ls --label hc-hub.lane=<L>` と `hc get` で全 worker の状態を取り直す。戻り値だけで子の完了を数えない（通知は取りこぼされうる。完了済みの子は報告されない）。返ったあとは `hc read` で画面を読み、宣言だけで終わったか完了かを見分ける
+4. **ループを抜ける条件は、自分の子も、引き継いだ worker も残っていないこと。** ここで数えるのは、`hc-hub.lane=<L>` を持ち `hc-hub.role` が hub でないターミナル（worker と常駐 agent。hub 自身は含めない）で、`state` が live のもの。idle のまま live の worker は数えるので、止める（`hc kill` → `hc rm`）までループは続く
 
 **合図は「画面を読め」の合図であって、完了の証拠ではない。** 状態が `idle`・`done` であることを確かめてから `hc read` で回収する（`working` なら背景で待つ）。
 
 hub が待機で張り付く形は、hub のターンを終えると待機プロセスが死ぬので効かない、という Herdr 1 の知見がある。`hc wait` が同じ性質かは hc では未測定のため、断定しない。ターンをまたいで待つ必要があるときは、バックグラウンドで走らせ、戻り値ではなく取り直した状態で判断する。
-
-引き継いだ worker は後任の子ではないので、自動の通知も `hc wait --children` も届かない。引き継いだ worker ごとに `hc-hub guard --op wait <t>` の後に `hc wait <t>` をバックグラウンドで並べ、`--children any` と同じに扱う（親でない hub の `hc wait` が blocked で返ることは実測済み）。
 
 ## 中継は情報を落とす
 
@@ -114,7 +121,9 @@ agent が exit しても、ターミナルの記録（と、`tab` 配置では t
 2. 止めるときは `hc kill → hc rm` の順に実行し、台帳に stop を記録する。いずれも直前に `hc-hub guard --op <op> <t>` を打つ
 
    ```bash
+   hc-hub guard --op kill <t>
    hc kill <t>      # tab 配置の tab もこれで消える（実測）
+   hc-hub guard --op rm <t>
    hc rm <t>        # ターミナルの記録を消す
    hc-hub ledger append --lane <L> --name <名前> --address <t> --hub "$HC_TERMINAL_ID" --event stop
    ```
@@ -123,4 +132,4 @@ agent が exit しても、ターミナルの記録（と、`tab` 配置では t
 
 ### 人が tab を閉じた worker
 
-`tab` 配置の worker は、人が tab を閉じると終了する（core の keep が有効になるため。spec）。worker が終了すると pane が閉じ、最後の pane なら tab も消える。hub は、人が閉じた worker を「終了した worker」として扱う。待機から返ったとき、または取り直した状態で `state: finished` のターミナルを見つけたら（人が tab を閉じた worker が `finished` になるのは、spec 4.10 と `hc kill` の実測（tab が消え、ターミナルが `finished` で残る）からの推定で、人が閉じた場合を直接測ったものではない）、`hc rm` で記録を消し（`kill` は要らない）、台帳に stop を記録する。結果を受け取っていなければ、受け取っていない事実を人に伝える。
+`tab` 配置の worker は、人が tab を閉じると終了する（core の keep が有効になるため。spec）。worker が終了すると pane が閉じ、最後の pane なら tab も消える。hub は、人が閉じた worker を「終了した worker」として扱う。待機から返ったとき、または取り直した状態で `state: finished` のターミナルを見つけたら（人が tab を閉じた worker が `finished` になるのは、spec 4.10 と `hc kill` の実測（tab が消え、ターミナルが `finished` で残る）からの推定で、人が閉じた場合を直接測ったものではない）、`hc-hub guard --op rm <t>` の後に `hc rm <t>` で記録を消し（`kill` は要らない）、台帳に stop を記録する。結果を受け取っていなければ、受け取っていない事実を人に伝える。

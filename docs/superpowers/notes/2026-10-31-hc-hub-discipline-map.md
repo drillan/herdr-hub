@@ -59,10 +59,10 @@
 | D048 | context 交代の手順 / 閾値は使用率であり残量ではない | 閾値は使用率であり残量ではない。メーターの使用率をそのまま handoff_at と比べる | そのまま | references/context-and-handover.md | 使用率であり残量ではない | - |
 | D049 | context 交代の手順 / auto-compact 済みを検出したら閾値無視で即交代 | auto-compact 済みを検出したら閾値を無視して即交代する（要約済み記憶から書く handoff は二次記述で劣る）。検出は hc read で、メーターの急落か compaction 通知行を見る | 変える | references/context-and-handover.md | 閾値を無視して即交代 | - |
 | D050 | context 交代の手順 / 閾値は handoff を書くのに十分な残量が残っているうちに置く | 閾値は handoff を書くのに十分な残量が残るうちに置く。遅らせると handoff 品質のリスクを取る（交代コストの支配項は後任の再暖機で発火時期に依存しない） | そのまま | references/context-and-handover.md | 十分な残量が残るうち | - |
-| D051 | context 交代の手順 / 前任生存中に後任を仮名 `<name>-next` で起動 | 前任が生きている間に後任を仮名 <name>-next で起動する（名前は core 全体で一意のため同名を取れない） | そのまま | references/context-and-handover.md | <name>-next | - |
+| D051 | context 交代の手順 / 前任生存中に後任を仮名で起動（実装で `<元の名前の短縮>-h<連番>` に確定。-next の連結はやめた） | 前任が生きている間に後任を仮名 <name>-next で起動する（名前は core 全体で一意のため同名を取れない） | そのまま | references/context-and-handover.md | -h<連番> | - |
 | D052 | context 交代の手順 / briefing の内容ブロックは前任が後任へ直接送る | briefing の内容ブロックは前任が後任へ直接送る。前任が現在の状態・最初の一手・既知の罠を、hub が宛先 guard・役割・作法・境界・進め方を書く | そのまま | references/context-and-handover.md | 前任が後任へ直接送る | - |
 | D053 | context 交代の手順 / 送信は roster と同じ transport 推定で | 送信は roster と同じ transport 推定で行う | 捨てる | - | - | transport の自動推定は Herdr 1 の仕組み。送信は hc send に一本化（spec 4.3） |
-| D054 | context 交代の手順 / 前任 exit → 名の整理 | 前任の exit 後に名の整理を行う。正名を取るか、仮名のまま運用して台帳の記録を付け替えるか、どちらか一方は必ず行う | 変える | references/context-and-handover.md | どちらか一方は必ず行う | - |
+| D054 | context 交代の手順 / 前任 exit → 名の整理 | 前任の exit 後に名の整理を行う。正名を取るか、仮名のまま運用して台帳の記録を付け替えるか、どちらか一方は必ず行う（hc に端末の名前を変える操作が無いため、実装で仮名のまま運用に一本化） | 変える | references/context-and-handover.md | 仮名のまま運用する | - |
 | D055 | context 交代の手順 / `agent rename` が変えるのは agent 名のみ | agent rename と pane rename・tab rename による正名の付け替え、pane ラベル・tab ラベルが追従しない問題 | 捨てる | - | - | Herdr 1 の agent rename と pane・tab ラベルの仕組みそのもの。hc には起動後に名前を付ける操作が見当たらない（spec 4.3） |
 | D056 | context ## 発火時コストを常時化して潰す | 発火時のコストを常時の記録で減らす節 | そのまま | references/context-and-handover.md | 発火時のコスト | - |
 | D057 | context 発火時コスト / worker は進捗・判断・罠を log へ随時追記 | worker は進捗・判断・罠をログ file へ随時追記する（briefing の作法に含める）。置き場は hc-hub の名前空間に変える | 変える | references/context-and-handover.md | 随時追記する | - |

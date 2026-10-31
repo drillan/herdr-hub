@@ -23,6 +23,8 @@ Herdr 2（herdr-core、CLI は `hc`）の上で、レーンごとの hub が wor
 
 ## §0 前提
 
+**CLI の呼び出し方。** 同梱の CLI は `uv run --script <この skill のディレクトリ>/scripts/hc-hub` で実行する（`<この skill のディレクトリ>` は、この SKILL.md があるディレクトリの絶対パス）。以降の文書の `hc-hub <サブコマンド> …` は、すべてこの呼び出しを指す。
+
 **この skill を読むのは hub だけ。** worker は skill を読まない。hub が投げる briefing が作法の担保になる。
 
 **人間は hub にだけ話し、hub が全 worker へ配る。** worker から人間への直接経路を作らない。
@@ -73,7 +75,7 @@ roster は編成の意図（desired state）で、`lanes.<名>.agents` は空で
 ## §2 レーンとガード
 
 - レーンは roster の `lanes:` に名前で定義する。hub と worker に `hc-hub.lane=<レーン名>`、`hc-hub.role` のラベルを付ける。1 レーンに hub は 1 人
-- hub がターミナルを宛先に取る `hc` の操作（`send`・`keys`・`interrupt`・`kill`・`rm`・`label`・`put`・`attach`・`wait <t>`・`read`）の前には、毎回 `hc-hub guard --op <操作> <t>` を通す。ラベルの無い宛先はどのレーンのものとも扱わず、操作しない
+- hub がターミナルを宛先に取る `hc` の操作（`send`・`keys`・`interrupt`・`kill`・`rm`・`label`・`put`・`attach`・`wait <t>`・`read`・`keep`）の前には、毎回 `hc-hub guard --op <操作> <t>` を通す。ラベルの無い宛先はどのレーンのものとも扱わず、操作しない
 - 越境してよいのは hub 同士の `hc send` だけ。ガードはラベルという自己申告に基づく規律で、機構的な遮断ではない
 - 通信は hc send に一本化する（エージェントごとの別経路は持ち込まない）
 
@@ -91,9 +93,9 @@ roster は編成の意図（desired state）で、`lanes.<名>.agents` は空で
 ## §3 起動と寿命
 
 - **起動前に棚卸しする。** §5 の最後の項目のとおり idle を棚卸しする。独立した仕事を 1 人に積まない
-- **起動は `hc-hub spawn-argv` の出力をそのまま `hc` に渡す。** worktree を `--cwd` に渡す（[references/worktrees.md](references/worktrees.md)）。最初の依頼は `hc run` に渡す。台帳に spawn を記録するのは、依頼が届いたと確認できてから
-- 起動後に状態が `null` のままなら `hc read` で画面を読む（信頼確認のダイアログなど）
-- **監視は `hc wait --children any`。** 1 分ごとの見回りは作らない。返るたびに `hc ls` と `hc get` で全 worker の状態を取り直す
+- **起動は `hc-hub spawn-argv` を単独で打って終了コードを確かめ、0 のときだけ出力をそのまま `hc` に渡す。** worktree を `--cwd` に渡す（[references/worktrees.md](references/worktrees.md)）。最初の依頼は `hc run` に渡す。台帳に spawn を記録するのは、依頼が届いたと確認できてから
+- 起動後は `hc wait <t> --timeout 60` で待つ。timeout で返り状態が `null` なら `hc read` で画面を読む（信頼確認のダイアログなど）。ダイアログも状態の報告も無ければ人に知らせて止まる
+- **監視は `hc wait --children any`。** 1 分ごとの見回りは作らない。状態の知らせで返ったときだけ `hc ls` と `hc get` で全 worker の状態を取り直す（`reason: timeout` は待ち直すだけ）
 - **停止は結果を受け取った hub が `hc kill` → `hc rm` で行い、台帳に記録する**
 
 手順の正典 → [references/startup.md](references/startup.md)、[references/messaging.md](references/messaging.md)

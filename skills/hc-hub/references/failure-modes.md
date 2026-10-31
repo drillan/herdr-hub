@@ -7,7 +7,7 @@
 | 失敗 | 観測 | 手 |
 |---|---|---|
 | blocked を完了と誤読 | `hc get` の `state` に `blocked` が出る。`hc wait` が `"status":"blocked"` で返る | 承認や質問の画面であり、完了ではない。`hc read` で画面を見て、[approvals.md](approvals.md) の範囲で答える。範囲外は人に上げる |
-| 状態が null のまま動かない（実測） | 起動後に `hc get` の `status` が `null` のまま。`blocked` の通知も来ず、`hc wait` も返らなかった | 未信頼の cwd で起こした Claude Code は、信頼確認ダイアログの間は状態を報告しない。状態が null のままなのは完了の証明ではない。`hc read` で画面を読み、フォルダの信頼の確認として [approvals.md](approvals.md) に従って答える（[startup.md](startup.md)） |
+| 状態が null のまま動かない（実測） | 起動後に `hc get` の `status` が `null` のまま。`blocked` の通知も来ず、`hc wait` も返らなかった | 未信頼の cwd で起こした Claude Code は、信頼確認ダイアログの間は状態を報告しない。状態が null のままなのは完了の証明ではない。`hc read` で画面を読み、フォルダの信頼の確認として [approvals.md](approvals.md) に従って答える。待ちは `hc wait <t> --timeout 60` で、timeout で返って null のままなら読む（[startup.md](startup.md)「起動後の確認」） |
 | `unknown` や分類不能な状態を完了と誤読 | 状態が分類できない | 分類不能は完了の証明ではない。応答を `hc read` で確認する |
 | 完了した子が `hc wait --children any` に出てこない（実測） | 終了済みの子は一覧から外れ、待機を走らせていない間に終わった子は、次の待機でも報告されない。子が 0 件のときは待たずに即座に返る | 待機の戻り値だけで子の完了を数えない。返るたびに `hc ls --label hc-hub.lane=<L>` と `hc get` で全 worker の状態を取り直す（[messaging.md](messaging.md)） |
 | `hc wait` がターン終了で返り、完了と誤読（実測） | worker が「バックグラウンドで実行中です」と宣言しただけでターンを終え、`status: done` で返った | 返ったあとは画面を読み、宣言だけで終わったか完了かを見分ける。回収には状態だけでなく画面の文面の確認を併用する。Herdr 1 では、prompt の入力中の隙間で idle を観測して settled と判定され、作業中に wait が返る形でも出た |
@@ -19,7 +19,7 @@
 | 画面から応答が読めない | `hc read` で行数を増やしても出ない | alternate screen 上で描画される応答は、host の scrollback に残らない。受け手に完全な応答をファイルに書いて、パスだけ返すよう依頼する（`hc read` で同じ現象が起きるかは未確認） |
 | エージェントが権限確認の画面で止まる | `blocked`。画面に承認 UI（「この Bash を実行してよいか」など） | hub は approval の範囲で画面を読んで答え、範囲外は人に上げる（従来の「hub は UI を回答しない」から変えた。[approvals.md](approvals.md)） |
 | worker の tab が意図しない space に出る | 想定と別の space に新しい tab が出る | tab の置き先を指定しないと意図しない space に出る。worker の `herdr.space` ラベルは hub 自身の値から決める（`hc-hub space`）。hub に無ければエラーで止まり、黙って `hidden` にしない（[startup.md](startup.md)） |
-| 制御コマンドが permission に拒否される | `hc send`・`hc run` などが分類器に拒否される | 複合コマンド（`cd`・`;`・パイプ・`echo >>` の同梱）は permission の allow の先頭一致から外れ、分類器の判定に回る。制御コマンドは単独で打つ（roster・ログの更新は別コマンドに分ける） |
+| 制御コマンドが permission に拒否される | `hc send`・`hc run` などが分類器に拒否される | 複合コマンド（`cd`・`;`・パイプ・`echo >>` の同梱）は permission の allow の先頭一致から外れ、分類器の判定に回る。制御コマンドは単独で打つ（roster・ログの更新は別コマンドに分ける）。`hc-hub spawn-argv` の出力も、単独で打って終了コードを確かめてから `hc` に渡す。プロセス置換の中に入れると失敗の終了コードが捨てられる（[startup.md](startup.md)） |
 | 宛先が別集団の同名 agent に届く | 意図しないターミナルが応答する | 名前の解決がマシン全域の経路は、別集団の同名 agent に届く。集団が混在する環境では宛先を限定する。hc の名前は core 全体で一意で、`hc-hub guard` が宛先のレーンラベルを確かめる（[lanes.md](lanes.md)） |
 | agent 終了後に空のターミナルが残る | `hc ls` に `state: finished` のターミナルが残る | agent の終了と後始末は別。hub の停止は `hc kill` → `hc rm` まで行い、台帳に `stop` を記録する（[messaging.md](messaging.md)）。tab は `hc kill` で自動で消える（実測） |
 | 人が tab を閉じて worker が終わる | worker が `finished` で見つかる | 画面のラベルが付いたターミナルは、tab を閉じると終了する（spec）。終了した worker として扱い、台帳に `stop` を記録する |

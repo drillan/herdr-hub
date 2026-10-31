@@ -31,15 +31,23 @@ hub は人の承認を求めずに worker を起こす。そのぶん、起こ�
 
 起動は `hc-hub spawn-argv` の出力をそのまま `hc` に渡す。`--outlive-parent`・`hc-hub.lane`・`hc-hub.role`・`hc-hub.brief` のラベル・`herdr.space` は CLI が組み立てる。手で `hc run` を組まない。
 
-```bash
-readarray -d '' -t ARGV < <(
-  hc-hub spawn-argv --lane <L> --preset <preset> --name <名前> --cwd <worktree の絶対パス> \
-    --task "<最初の依頼>" [--brief <依頼ファイルのパス>] | jq -j '.[] + "\u0000"'
-)
-hc "${ARGV[@]}"
-```
+手順は 2 段で、段の間で終了コードを確かめる。`spawn-argv` をパイプやプロセス置換の中に入れると、失敗の終了コードが捨てられ、空の引数で `hc` を打つことになる。
+
+1. `spawn-argv` を単独で打ち、結果をファイルに受ける。終了コードが 0 でなければ、ここで止まる（理由は標準エラーに出る。ファイルは使わない）。`.hc-hub/` は台帳と同じく非追跡の置き場
+
+   ```bash
+   hc-hub spawn-argv --lane <L> --preset <preset> --name <名前> --cwd <worktree の絶対パス> \
+     --task "<最初の依頼>" [--brief <依頼ファイルのパス>] > .hc-hub/argv-<名前>.json
+   ```
+
+2. 終了コードが 0 だったときだけ、配列に展開して `hc` に渡す。配列が空なら `hc` を打たない
+
+   ```bash
+   readarray -d '' -t ARGV < <(jq -j '.[] + "\u0000"' .hc-hub/argv-<名前>.json) && test "${#ARGV[@]}" -gt 0 && hc "${ARGV[@]}"
+   ```
 
 - `spawn-argv` は `hc` に続く引数を JSON の配列で出す。要素の順序も中身も変えずに渡す
+- 自分のレーンの hub でない端末（`hc-hub start` を打っていない、role が `hub` でない、別レーンのラベルを持つ）で打つと、`spawn-argv` はエラーで止まる
 - preset ではなく常駐 agent を起こすときは `--preset <preset>` の代わりに `--agent <エントリ名>`（常駐 agent の名前の一覧は `hc-hub residents --lane <L>`）
 - エージェントの指定は `command`（argv の配列）か `template`（hc の template 名）のどちらか一方。引数とオプションの正典はインストール済みバイナリの `hc run --help`
 - エージェント固有の引数（必須の起動引数など）は command の argv に入れる（[agents.md](agents.md)）
@@ -81,11 +89,14 @@ herdr-app do tab.rename --id <tab id> --name <worker の名前>
 
 ## 起動後の確認
 
-起動後は次の順に確認する。省略しない。
+起動後は、状態の報告の有無と、依頼が届いたかを、次の順に確認する。省略しない。
 
-1. **状態の報告があるか。** `hc get <t>` で `state` を見る。状態の報告が無いエージェントは、承認待ちに気づけない。人に知らせて止まる（[agents.md](agents.md)）
-2. **状態が `null` のままなら `hc read` で画面を読む。** 起動後に状態が `null` のまま動かないのは、未信頼の cwd での信頼の確認ダイアログなど、状態を報告しない画面で止まっている兆候（実測: ダイアログ中は状態を報告せず、`blocked` の通知も来ず、`hc wait` は返らなかった）。worktree の cwd も未信頼でありうるので、起動直後の確認では毎回これを疑う。読んで画面に従い、[approvals.md](approvals.md) の表に従って答える
-3. **依頼が届いたか。** `first_message.sent` は template で起動したときにしか返らない。command 起動ではタグも `first_message` も付かない（実測）。そこで、`hc get` の状態が `working` になる、またはターン（`turn`）が進むことで、依頼を受け取ったと判断する
+1. **起動後に待つ。** `hc-hub guard --op wait <t>` の後に `hc wait <t> --timeout 60` を打つ。待ち時間の 60 秒は設計者の判断で、hc の既定（180 秒）では起動直後の確認に長すぎるため。返った理由で分ける。
+   - **状態の知らせ**（`working`・`done`・`blocked` など、`reason: status`）で返った → エージェントは状態を報告している。通常どおり進める。`blocked` なら [approvals.md](approvals.md) に従う
+   - **`reason: timeout`** で返った → `hc get <t>` で `state` を見る。状態が報告されていれば（`null` でなければ）通常どおり進める。`null` のままなら `hc read <t>` で画面を読む
+     - 画面が確認のダイアログ（未信頼の cwd での信頼の確認など）なら、[approvals.md](approvals.md) の表に従って答える。実測では、ダイアログ中は状態を報告せず、`blocked` の通知も来ず、`hc wait` は返らなかった（timeout まで）。worktree の cwd も未信頼でありうるので、起動直後は毎回これを疑う。答えたら、もう一度 `hc wait <t> --timeout 60` から確かめる
+     - ダイアログも無く、状態も報告されないなら、そのエージェントは状態を報告しないとみなす。承認待ちに気づけないので、人に知らせて止まる（[agents.md](agents.md)）
+2. **依頼が届いたか。** `first_message.sent` は template で起動したときにしか返らない。command 起動ではタグも `first_message` も付かない（実測）。そこで、`hc get` の状態が `working` になる、またはターン（`turn`）が進むことで、依頼を受け取ったと判断する
 
 ### 届いていなければ送り直す
 
@@ -101,10 +112,10 @@ herdr-app do tab.rename --id <tab id> --name <worker の名前>
 
    ```bash
    hc-hub ledger append --lane <L> --name <名前> --address <t> --hub "$HC_TERMINAL_ID" \
-     --event spawn --preset <preset> --command-json '<argv の JSON>' [--brief <依頼ファイルのパス>]
+     --event spawn --preset <preset> --command-json '<解決済みの command の JSON 配列>' [--brief <依頼ファイルのパス>]
    ```
 
-   `template` で起こしたときは `--command-json` の代わりに `--template <名前>`。**記録に失敗したら、起こした worker を片付けて人に上げる。** 片付けは `hc-hub guard --op kill <t>` → `hc kill <t>`、`hc-hub guard --op rm <t>` → `hc rm <t>` の順で、guard を省かない。 台帳に無い worker は誰にも見えないまま残る
+   `--command-json` に渡すのは、台帳に記録する解決済みの `command`（`hc-hub resolve --lane <L> --preset <preset>` の出力の `command`）を JSON の配列にしたもので、`spawn-argv` の出力（`hc run` の引数）ではない。`template` で起こしたときは `--command-json` の代わりに `--template <名前>`。**記録に失敗したら、起こした worker を片付けて人に上げる。** 片付けは `hc-hub guard --op kill <t>` → `hc kill <t>`、`hc-hub guard --op rm <t>` → `hc rm <t>` の順で、guard を省かない。 台帳に無い worker は誰にも見えないまま残る
 2. briefing を渡す（[briefing.md](briefing.md)）。briefing は最初の依頼に含めて渡すのが基本で、hub のアドレスを必ず書く。補う分は `hc send`。briefing は hub が書く。人間に書かせない。稼働途中の追加なら「現在の状態」入りの 8 ブロック版を使う
 3. 以後の監視と後始末は [messaging.md](messaging.md)
 

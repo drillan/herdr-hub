@@ -178,7 +178,7 @@ Herdr 2（herdr-core、CLI は `hc`）の上で、**レーンごとの hub** が
 - roster は `.hc-hub.yml`。**レーン**（`lanes:`）ごとに hub と worker を束ね、台帳（`ledger`）に起動・停止を追記する。`kind` と `transport` は廃止し、起動方法は `command` か `template`、通信は `hc send` に一本化した
 - 操作の前に `hc-hub guard` でレーンのラベルを検査し、他レーンの端末を触らない
 - 承認待ちには `approval: auto | manual` の範囲で hub が答える（分類器・hook・人の承認が要るルールは人へ上げる）
-- ガード・検証・台帳・起動引数の組み立ては、skill 同梱の CLI `scripts/hc-hub`（Python、`uv` で実行）が担う
+- ガード・検証・台帳・起動引数の組み立ては、skill 同梱の CLI `scripts/hc-hub`（Python、`uv run --script <skill のディレクトリ>/scripts/hc-hub` で実行）が担う。文書中の `hc-hub <サブコマンド>` はこの呼び出しを指す
 
 ### 要件
 

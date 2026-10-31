@@ -75,7 +75,7 @@ Herdr 2 は、ターミナルを動かし続ける常駐の core（herdr-core、
 - レーンは roster の `lanes:` に名前で定義する。分離の単位は space ID ではなくレーン名とする（space は作り直すと ID が変わるため）
 - hc-hub が付けるラベル（キー名は設計者の判断）:
   - `hc-hub.lane=<レーン名>`: すべての hub・worker に付ける
-  - `hc-hub.role=hub`、`hc-hub.role=<preset 名>`、preset を持たない常駐 agent では `hc-hub.role=<エントリ名>`
+  - `hc-hub.role=hub`、worker は `hc-hub.role=<preset 名>`、常駐 agent は preset を持つ場合も含めて `hc-hub.role=<エントリ名>`（実装で確定。`hub` は予約語）
   - `hc-hub.brief=<依頼ファイルのパス>`: 依頼ファイルがある worker に、起動時の `--label` で付ける（ラベルの値にパスの文字を入れられるかは §5-3）
   - `hc-hub.needs-human=1`: 人の判断を待っている worker に、hub が付ける（4.6）
 - `hc ls` の各行はラベル・名前・親を返さない（確認済み）。`hc ls --label` で候補を絞り、ラベル・`parent`・`state` は 1 件ずつ `hc get <t> --json` で読む

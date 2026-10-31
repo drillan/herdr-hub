@@ -10,7 +10,7 @@
 |---|---|---|
 | `hc-hub.lane=<レーン名>` | すべての hub・worker | 所属するレーン |
 | `hc-hub.role=hub` | hub | レーンの hub |
-| `hc-hub.role=<preset 名>` | preset から起こした worker | 役割。preset を持たない常駐 agent では `hc-hub.role=<エントリ名>` |
+| `hc-hub.role=<preset 名>` | `--preset` から起こした worker | 役割。常駐 agent（`--agent`）は preset を持っていても `hc-hub.role=<エントリ名>`。`hub` は hub 専用の予約語で、preset 名にも常駐 agent 名にも使えない |
 | `hc-hub.brief=<依頼ファイルのパス>` | 依頼ファイルがある worker | 起動時の `--label` で付ける。値に `/` を含むパスを入れられる（実測） |
 | `hc-hub.needs-human=1` | 人の判断を待つ worker | hub が付け外しする（[approvals.md](approvals.md)） |
 
@@ -36,13 +36,13 @@ hub のターミナルは人が起こすため名前が無いことがある。h
 
 ## 操作前のガード
 
-宛先を取る hc の操作（`send`・`keys`・`interrupt`・`kill`・`rm`・`label`・`put`・`attach`・`wait <t>`・`read` など、宛先を取るものすべて）を打つ前に、毎回これを打つ。
+宛先を取る hc の操作（`send`・`keys`・`interrupt`・`kill`・`rm`・`label`・`put`・`attach`・`wait <t>`・`read`・`keep` など、宛先を取るものすべて）を打つ前に、毎回これを打つ。
 
 ```bash
 hc-hub guard --op <op> <t>
 ```
 
-`<op>` は打つ hc のサブコマンド名で、`send`・`keys`・`interrupt`・`kill`・`rm`・`label`・`put`・`attach`・`wait`・`read` のどれか。これ以外の名前は CLI が拒否する。CLI は自分と宛先のラベルを `hc get` で読み、自分にも宛先にも `hc-hub.lane` と `hc-hub.role` があることを確かめたうえで、次のどちらかに当たれば通す。
+`<op>` は打つ hc のサブコマンド名で、`send`・`keys`・`interrupt`・`kill`・`rm`・`label`・`put`・`attach`・`wait`・`read`・`keep` のどれか。これ以外の名前は CLI が拒否する。CLI は自分と宛先のラベルを `hc get` で読み、自分にも宛先にも `hc-hub.lane` と `hc-hub.role` があることを確かめたうえで、次のどちらかに当たれば通す。
 
 1. 宛先の `hc-hub.lane` が自分と同じ
 2. 自分が hub で、宛先が `hc-hub.role=hub`（他レーンの hub）で、操作が `send` である
@@ -50,6 +50,8 @@ hc-hub guard --op <op> <t>
 どちらにも当たらなければ非 0 で終わる。その場合は操作せず、エラーとして止まる。別の宛先や別の操作に切り替えて通さない。ラベルの無い宛先（`hc-hub.lane` か `hc-hub.role` が欠ける宛先）は、どのレーンのものとも扱わない。操作せず、必要なら人に上げる（[escalation.md](escalation.md)）。
 
 `hc wait --children any` と `hc ls` のように、宛先を取らない操作にガードは要らない。
+
+`hc --help` の宛先を取る操作（`attach`・`read`・`kill`・`rm`・`label`・`keep`・`send`・`keys`・`interrupt`・`wait`・`put`・`get`）のうち、`get` だけはガードの対象にしない。`get` は読むだけで、ガード自身が両者のラベルを読むために使う。
 
 ## 越境の規則
 

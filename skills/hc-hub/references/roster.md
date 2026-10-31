@@ -60,10 +60,10 @@ lanes:
 | `agents` | マッピング | 常駐させたい agent。キーが名前 |
 | `lanes` | マッピング | レーンの定義。キーがレーン名 |
 
-- レーン名・preset 名・常駐 agent の名前は `^[a-z0-9_-]{1,32}$` に限る（hc の名前とラベルの値に使うため）。常駐 agent の名前は core 全体で一意なので、レーンをまたいで重複していればエラー
+- レーン名・preset 名・常駐 agent の名前は `^[a-z0-9_-]{1,32}$` に限る（hc の名前とラベルの値に使うため）。常駐 agent の名前は core 全体で一意なので、レーンをまたいで重複していればエラー。`hub` は hub 自身の `hc-hub.role` の値なので予約語で、preset 名にも常駐 agent 名にも使えない（エラー）
 - `command` と `template` は 1 つの段に両方は書けない。統合後の解決結果は、ちょうど一方を持たなければならない。起動方法が解決できない常駐 agent は、roster の読み込み時にエラー。起動方法を持たない preset は読み込みでは通り、worker として起こそうとしたときにエラーになる（常駐 agent に個別に `command` を足す土台に使えるため）
 - `kind` は廃止（`command` か `template` に置き換える）、`transport` も廃止（通信は `hc send` に一本化）、`on`（別マシンを指す指定）は未対応。書かれていたら置き換え先を表示してエラーにする。`role_file` は `role_def` に改名済みで、書かれていたら改名を案内してエラーにする。別名として黙って読まない
-- roster の YAML が壊れている・読めない・UTF-8 でない場合もエラー
+- roster の YAML が壊れている・読めない・UTF-8 でない場合もエラー。同じマッピングに同じキーが 2 回あれば（最上位でも入れ子でも）エラー。後のキーが前のキーを黙って上書きしない
 - 参照される `rules`・`role_def` の file は、preset・defaults 経由の分も含め、存在し読めること。不在・不可読は即エラー
 
 ## 解決順序
@@ -80,7 +80,7 @@ lanes:
 
 ### rules の merge（union）
 
-`rules` だけは上書きでなく union（連結）する。規律は共通 + 役割固有 + 個人固有の重ね合わせで、個別指定が共通を潰すと境界が消える。全段をこの順に連結したものが最終セットになる。重複するパスは 1 度だけ適用する。
+`rules` だけは上書きでなく union（連結）する。規律は共通 + 役割固有 + 個人固有の重ね合わせで、個別指定が共通を潰すと境界が消える。全段をこの順に連結したものが最終セットになる。重複するパスは 1 度だけ適用する。同じパスかどうかは roster のあるディレクトリ基準で解決した絶対パスで比べ（`./l.md` と `l.md` は同じ）、最初に現れた位置を残して順序を保つ。
 
 ⚠ 他フィールドの「個別が優先」と merge 規則が違う。混同しない。
 
@@ -126,7 +126,7 @@ lanes:
 
 ## 交代時の仮名
 
-交代では前任生存中に後任を起こすため、同名を取れない。後任は `<name>-next` の仮名で起動し、前任の exit 後も仮名のまま運用し、台帳の記録を後任へ付け替える（hc には端末の名前を起動後に変える操作が無いので、名前そのものは変えない）。前任の `stop` と後任の仮名を台帳に記録する。手順は [context-and-handover.md](context-and-handover.md)。
+交代では前任生存中に後任を起こすため、同名を取れない。後任は `<元の名前の短縮>-h<連番>` の仮名（32 文字以内。元の名前の末尾を削って `-h<連番>` を必ず入れる）で起動し、前任の exit 後も仮名のまま運用し、台帳の記録を後任へ付け替える（hc には端末の名前を起動後に変える操作が無いので、名前そのものは変えない）。前任の `stop` と後任の仮名を台帳に記録する。手順は [context-and-handover.md](context-and-handover.md)。
 
 ## `hc-hub` の使い方
 
@@ -137,7 +137,7 @@ lanes:
 | `hc-hub validate` | roster を検証する。書いた直後と、起動の前に実行する |
 | `hc-hub resolve --lane <L> --hub` | hub の解決結果を JSON で出す。`--preset <p>`（動的な worker）、`--agent <名>`（常駐 agent）も同様 |
 | `hc-hub residents --lane <L>` | レーンの常駐 agent 名を JSON 配列で出す |
-| `hc-hub ledger append --lane <L> --name <名> --address <t> --event spawn\|stop\|adopt --hub <hub のアドレス> [--preset …] [--command-json …] [--template …] [--brief …]` | 台帳へ 1 行追記する |
+| `hc-hub ledger append --lane <L> --name <名> --address <t> --event spawn\|stop\|adopt --hub <hub のアドレス> [--preset …] [--command-json …] [--template …] [--brief …] [--hc <hc のパス>]` | 台帳へ 1 行追記する。自分が `<L>` の hub（`hc get` の自分のラベルが `hc-hub.lane=<L>` かつ `hc-hub.role=hub`）でなければエラー |
 | `hc-hub ledger list [--lane <L>]` | 台帳を JSON 配列で出す。`--lane` で絞れる。ファイルがまだ無ければ空 |
 
 起動・ガードの `hc-hub start`・`spawn-argv`・`guard`・`space`・`preflight` は [lanes.md](lanes.md) と [startup.md](startup.md)。
@@ -153,6 +153,8 @@ hub が起動・停止・引き継ぎのたびに 1 行の JSON を追記する�
 - 追記は `O_APPEND` で 1 行を 1 回の write で書くので、レーンの異なる hub が同時に書いても行は混ざらない
 - 読めない・壊れた行があればエラー（行番号つき）。読み飛ばさない
 - `ledger append` は roster に無いレーンを拒否する
+- `ledger append` は、自分（`HC_TERMINAL_ID`）のラベルが `hc-hub.lane` = `--lane` かつ `hc-hub.role=hub` でなければ拒否する。他レーンの hub や worker が台帳に書けないようにするため
+- `ledger append` は、`--name`・`--address`・`--hub` が空文字列ならエラー。`--command-json` は空でない文字列のリスト（空要素もエラー）。`--preset` は roster に定義された preset でなければエラー
 - 追記に失敗したら、その操作をエラーとして止める。spawn の記録に失敗したときは、起こした worker を片付けてから人に上げる
 
 ## チェックアウトとパスの基準

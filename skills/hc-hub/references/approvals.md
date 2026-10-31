@@ -49,7 +49,7 @@ roster の `approval: auto | manual` で中段の行が切り替わる。値が 
 1. 止めた表示を逐語で控える（要約や言い換えにしない）
 2. `hc-hub guard --op label <t>` を打ってから、待っている worker に `hc label <t> hc-hub.needs-human=1` を付ける
 3. 自分の画面（人が読む場所）に、止めた表示の逐語と、何を決めてほしいかを書く（[escalation.md](escalation.md)）
-4. 人の答えを受けたら、その答えを worker に伝え、`hc-hub.needs-human=1` を外す（外す前にも `hc-hub guard --op label <t>`）
+4. 人の答えを受けたら、その答えを worker に伝え、`hc-hub.needs-human=1` を外す。外す前に `hc-hub guard --op label <t>` を打ち、`hc label <t> hc-hub.needs-human=` で外す（`key=` で消える。`hc label --help`）
 
 値を固定の `1` にするのは、`hc ls --label` が完全一致でしか絞れず、複数の worker が同時に待つこともあるため。人は `hc ls --label hc-hub.needs-human=1` で、どの worker が人を待っているかを全レーン分一覧できる（行の `where` でレーンの場所もわかる）。
 
@@ -61,5 +61,5 @@ roster の `approval: auto | manual` で中段の行が切り替わる。値が 
 
 ## 気づけない止まり方
 
-- 起動直後に信頼の確認ダイアログで止まると、状態が `null` のままで `blocked` の通知も来ず、`hc wait` も返らない（実測）。`hc wait` の返りを待たず、起動後に状態が `null` のままなら `hc read` で画面を確かめる
+- 起動直後に信頼の確認ダイアログで止まると、状態が `null` のままで `blocked` の通知も来ず、`hc wait` も返らない（実測）。`hc wait` は返らない（timeout まで待つことになる）ので、`hc wait <t> --timeout 60` が timeout で返り、状態が `null` のままなら `hc read` で画面を確かめる（[startup.md](startup.md)）
 - 状態を報告しないエージェントでは、承認待ちに気づけない。起動時の検査で止まり、人に知らせる（[agents.md](agents.md)）
