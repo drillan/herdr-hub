@@ -24,13 +24,25 @@ def write_roster(directory: Path) -> Path:
     cfg = {
         "presets": {
             "impl": {"role": "実装", "command": ["claude"], "placement": "tab"},
-            "quiet": {"command": ["claude", "--x"], "placement": "hidden"},
-            "advisor": {"template": "advisor", "placement": "tab"},
+            "quiet": {
+                "role": "静か",
+                "command": ["claude", "--x"],
+                "placement": "hidden",
+            },
+            "advisor": {"role": "設計相談", "template": "advisor", "placement": "tab"},
         },
         "defaults": {"approval": "auto"},
         "ledger": "ledger.jsonl",
         "lanes": {
-            "be": {"agents": {"be-rev": {"command": ["codex"], "placement": "tab"}}},
+            "be": {
+                "agents": {
+                    "be-rev": {
+                        "role": "review",
+                        "command": ["codex"],
+                        "placement": "tab",
+                    }
+                }
+            },
         },
     }
     path = directory / ".hc-hub.yml"
@@ -186,7 +198,7 @@ def test_spawn_argv_resident_with_preset_uses_entry_name_as_role(
     tmp_path: Path,
 ) -> None:
     cfg = {
-        "presets": {"impl": {"command": ["claude"]}},
+        "presets": {"impl": {"role": "実装", "command": ["claude"]}},
         "defaults": {"approval": "auto"},
         "ledger": "l.jsonl",
         "lanes": {"be": {"agents": {"be-main": {"preset": "impl"}}}},

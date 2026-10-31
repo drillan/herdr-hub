@@ -25,7 +25,7 @@ def base() -> dict[str, Any]:
         "presets": {
             "impl": {"role": "実装", "command": ["claude"], "rules": ["p.md"]},
             "reviewer": {"role": "review", "command": ["codex", "--no-daemon"]},
-            "advisor": {"template": "advisor"},
+            "advisor": {"role": "設計相談", "template": "advisor"},
         },
         "defaults": {"rules": ["d.md"], "approval": "auto"},
         "ledger": "ledger.jsonl",
@@ -34,7 +34,11 @@ def base() -> dict[str, Any]:
                 "rules": ["l.md"],
                 "hub": {"rules": ["h.md"]},
                 "agents": {
-                    "be-rev": {"command": ["codex", "--no-daemon"], "approval": "auto"},
+                    "be-rev": {
+                        "role": "review",
+                        "command": ["codex", "--no-daemon"],
+                        "approval": "auto",
+                    },
                 },
             },
             "fe": {"approval": "manual", "agents": {}},
@@ -148,6 +152,7 @@ def test_approval_missing_everywhere_raises(tmp_path: Path) -> None:
         (("presets", "impl"), "kind", "claude", "command か template"),
         (("lanes", "be", "agents", "be-rev"), "transport", "herdr", "hc send"),
         (("presets", "impl"), "placement", "pane", "tab か hidden"),
+        (("presets", "impl"), "role_file", "r.md", "role_def"),
     ],
 )
 def test_removed_keys_raise_with_replacement(
@@ -477,3 +482,22 @@ def test_preset_name_follows_hc_rule(tmp_path: Path) -> None:
     cfg["presets"]["Bad Name"] = {"command": ["claude"]}
     with pytest.raises(RosterError, match="Bad Name"):
         load_roster(write(tmp_path, cfg))
+
+
+def test_resident_without_role_raises_at_load(tmp_path: Path) -> None:
+    cfg = cfg_of()
+    del cfg["lanes"]["be"]["agents"]["be-rev"]["role"]
+    with pytest.raises(RosterError, match=r"lanes\.be\.agents\.be-rev.*role"):
+        load_roster(write(tmp_path, cfg))
+
+
+@pytest.mark.parametrize("value", ["", 3])
+def test_worker_without_valid_role_raises(tmp_path: Path, value: object) -> None:
+    cfg = cfg_of()
+    cfg["presets"]["bare"] = {"command": ["claude"]}
+    rs = load_roster(write(tmp_path, cfg))
+    with pytest.raises(RosterError, match=r"preset bare.*role"):
+        resolve_worker(rs, "be", "bare")
+    cfg["presets"]["bad"] = {"command": ["claude"], "role": value}
+    with pytest.raises(RosterError, match="role"):
+        resolve_worker(load_roster(write(tmp_path, cfg)), "be", "bad")

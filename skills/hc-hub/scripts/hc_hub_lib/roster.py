@@ -50,6 +50,7 @@ ALLOWED_KEYS: Mapping[str, frozenset[str]] = {
 REMOVED_KEYS = {
     "kind": "kind は廃止。command か template を書く",
     "transport": "transport は廃止。hc send に一本化",
+    "role_file": "role_file は廃止。role_def に改名する",
     "on": "on は使えない。別マシンを指す指定は未対応",
 }
 
@@ -329,6 +330,12 @@ def _resolve_chain(
     return _merge(roster, stages, where=where, is_hub=False, preset=preset)
 
 
+def _require_role(resolved: Resolved, where: str) -> None:
+    if not isinstance(resolved.role, str) or not resolved.role:
+        msg = f"{where}: role が解決できない（preset か個別に空でない文字列で書く）"
+        raise RosterError(msg)
+
+
 def resolve_hub(roster: Roster, lane: str) -> Resolved:
     lane_node = _lane_node(roster, lane)
     stages = [
@@ -350,6 +357,7 @@ def resolve_worker(roster: Roster, lane: str, preset: str) -> Resolved:
     if resolved.command is None and resolved.template is None:
         msg = f"preset {preset} に command も template も無く、worker を起こせない"
         raise RosterError(msg)
+    _require_role(resolved, f"preset {preset}")
     return resolved
 
 
@@ -366,6 +374,7 @@ def resolve_resident(roster: Roster, lane: str, name: str) -> Resolved:
     if resolved.command is None and resolved.template is None:
         msg = f"{where}: command も template も解決できず、起動方法が無い"
         raise RosterError(msg)
+    _require_role(resolved, where)
     return resolved
 
 
