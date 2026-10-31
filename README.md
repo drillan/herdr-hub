@@ -168,14 +168,68 @@ context 使用率が `handoff_at`（既定 0.8 = 80% 使用）に達したら交
 
 詳細は [context-and-handover.md](skills/herdr-hub/references/context-and-handover.md)。
 
+## hc-hub（Herdr 2 / herdr-core 向け）
+
+Herdr 2（herdr-core、CLI は `hc`）の上で、**レーンごとの hub** が複数のコーディングエージェントを起動・監視・停止するための runbook。呼び出したエージェントが hub になる点は herdr-hub と同じ。旧 `herdr` の環境には herdr-hub を使う。
+
+### herdr-hub（Herdr 1 版）との違い
+
+- 前提は `HERDR_ENV=1` ではなく `HC_TERMINAL_ID`。操作は `herdr` ではなく `hc` で行う
+- roster は `.hc-hub.yml`。**レーン**（`lanes:`）ごとに hub と worker を束ね、台帳（`ledger`）に起動・停止を追記する。`kind` と `transport` は廃止し、起動方法は `command` か `template`、通信は `hc send` に一本化した
+- 操作の前に `hc-hub guard` でレーンのラベルを検査し、他レーンの端末を触らない
+- 承認待ちには `approval: auto | manual` の範囲で hub が答える（分類器・hook・人の承認が要るルールは人へ上げる）
+- ガード・検証・台帳・起動引数の組み立ては、skill 同梱の CLI `scripts/hc-hub`（Python、`uv` で実行）が担う
+
+### 要件
+
+- **herdr-core**（`hc` が PATH にあり、hub が `HC_TERMINAL_ID` を持つ端末の中で動くこと）
+- **`uv`**（同梱 CLI `hc-hub` の実行に使う）
+- 確かめたエージェントは Claude Code だけ。Codex は測っていない
+
+### インストール
+
+```bash
+gh skill install drillan/herdr-hub hc-hub
+```
+
+公式の `herdr-core` skill は user scope に入れない前提（description が広く発火し、worker の Claude にも見えて勝手に `hc run` を誘発しうるため）。
+
+### `.hc-hub.yml` の作り方
+
+[.hc-hub.yml.example](skills/hc-hub/.hc-hub.yml.example) を作業対象 repo の直下に `.hc-hub.yml` としてコピーし、パスを実在のものに直す。`ledger` と、どの段かで `approval` の指定が必須。Claude だけで編成する最小形:
+
+```yaml
+presets:
+  impl: { role: 実装, command: [claude] }
+defaults:
+  approval: manual
+ledger: .hc-hub/ledger.jsonl
+lanes:
+  backend:
+    agents: {}
+```
+
+hub にするエージェントで skill を呼び出すと、最初に `hc-hub preflight` で前提を検査し、`hc-hub validate` → `hc-hub start --lane <レーン名>` で hub になる。スキーマの詳細は [roster.md](skills/hc-hub/references/roster.md)。
+
+### 長く走らせる hub には自動 compact を設定する
+
+hub は `hc wait --children any` で長く待つため、context が膨らむと途中で自動 compact が走りうる。長く走らせる hub のエージェントには、自動 compact の設定（Claude Code なら有効化と閾値）を推奨する。hub が落ちても worker は `--outlive-parent` で続くが、hub の交代は人が手で行う（[context-and-handover.md](skills/hc-hub/references/context-and-handover.md)）。
+
 ## ファイル構成
 
-この repo からは 2 つの skill を配布する（`gh skill install drillan/herdr-hub <name>` で個別インストール可）:
+この repo からは 3 つの skill を配布する（`gh skill install drillan/herdr-hub <name>` で個別インストール可）:
 
-- **herdr-hub** — 上記の hub-spoke 運用 runbook
+- **herdr-hub** — 上記の hub-spoke 運用 runbook（Herdr 1 向け）
+- **hc-hub** — Herdr 2（herdr-core）向けの hub runbook。上の「hc-hub」節を参照
 - **herdr-session** — `session stop` → `attach` でリセットされる agent 名を capture/restore するユーティリティ（`skills/herdr-session/`）。HERDR_ENV=1 の pane 内で `herdr-session capture`（stop 前・rename 後）/ `herdr-session restore`（attach 後）/ `herdr-session status` を実行。照合は native session UUID で行うため pane ID の変動に強い。詳細は同 skill の SKILL.md
 
 ```
+skills/hc-hub/                             # Herdr 2 向けの hub runbook（同梱 CLI つき）
+  SKILL.md                                # skill 入口
+  references/                             # 12 ファイル（lanes・approvals・agents・roster・startup 等）
+  scripts/hc-hub                          # 同梱 CLI（preflight・validate・start・spawn-argv・guard・ledger 等）
+  scripts/hc_hub_lib/                     # CLI の実装
+  .hc-hub.yml.example                     # roster YAML テンプレート
 skills/herdr-session/                      # agent 名の capture/restore（HERDR_ENV=1 の pane 内で実行）
   SKILL.md                                # 使い方・照合ルール・制限
   scripts/herdr-session                   # capture / restore / status（bash+jq）
