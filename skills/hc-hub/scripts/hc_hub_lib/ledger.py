@@ -36,7 +36,7 @@ class LedgerEvent:
 
 def append_event(path: Path, ev: LedgerEvent) -> None:
     # 複数レーンの hub が同時に追記する。1 行を 1 回の write で書かないと行が混ざる
-    data = (json.dumps(asdict(ev), ensure_ascii=False) + "\n").encode()
+    data = (json.dumps(asdict(ev), ensure_ascii=False) + "\n").encode("utf-8")
     try:
         fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, APPEND_MODE)
     except OSError as e:
@@ -110,7 +110,7 @@ def _parse(line: str) -> LedgerEvent:
 
 def read_events(path: Path) -> list[LedgerEvent]:
     try:
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return []
     except OSError as e:

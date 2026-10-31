@@ -113,3 +113,10 @@ def test_cli_guard_without_terminal_id(tmp_path: Path) -> None:
     p = run_cli("guard", "--op", "send", "--hc", str(hc), "t9")
     assert p.returncode == 2
     assert "HC_TERMINAL_ID" in p.stderr
+
+
+def test_keep_is_guarded() -> None:
+    assert "keep" in GUARDED_OPS
+    check("keep", {L: "be", R: "hub"}, {L: "be", R: "impl"})
+    with pytest.raises(GuardError):
+        check("keep", {L: "be", R: "hub"}, {L: "fe", R: "impl"})

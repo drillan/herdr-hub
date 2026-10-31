@@ -3,6 +3,8 @@ import subprocess
 from collections.abc import Mapping
 from typing import Any, cast
 
+HC_TIMEOUT_SECONDS: float = 30
+
 
 class HcError(Exception):
     pass
@@ -32,8 +34,16 @@ def _error_message(stdout: str, stderr: str) -> str:
 def run_hc(hc: str, args: list[str]) -> str:
     try:
         proc = subprocess.run(  # noqa: S603
-            [hc, *args], capture_output=True, text=True, check=False
+            [hc, *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=HC_TIMEOUT_SECONDS,
         )
+    except subprocess.TimeoutExpired as e:
+        command = " ".join(args)
+        msg = f"{hc} {command} が {HC_TIMEOUT_SECONDS:g} 秒以内に終わらずタイムアウト"
+        raise HcError(msg) from e
     except OSError as e:
         msg = f"{hc} を実行できない: {e}"
         raise HcError(msg) from e

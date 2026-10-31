@@ -17,6 +17,7 @@ GUARDED_OPS: frozenset[str] = frozenset(
         "attach",
         "wait",
         "read",
+        "keep",
     }
 )
 

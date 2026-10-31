@@ -32,6 +32,7 @@ from hc_hub_lib.ledger import (
 from hc_hub_lib.preflight import PreflightError, run_preflight
 from hc_hub_lib.roster import (
     Resolved,
+    Roster,
     RosterError,
     load_roster,
     resident_names,
@@ -39,7 +40,7 @@ from hc_hub_lib.roster import (
     resolve_resident,
     resolve_worker,
 )
-from hc_hub_lib.spawn import SpawnError, spawn_argv, start_hub
+from hc_hub_lib.spawn import SpawnError, require_lane_hub, spawn_argv, start_hub
 
 DEFAULT_ROSTER = ".hc-hub.yml"
 ROSTER_ERROR_EXIT = 2
@@ -118,6 +119,7 @@ def build_parser() -> argparse.ArgumentParser:
     ledger_sub = ledger.add_subparsers(dest="ledger_command", required=True)
     append = ledger_sub.add_parser("append", help="台帳へ 1 件追記する")
     add_roster(append)
+    _add_hc(append)
     for flag in ("lane", "name", "address", "hub"):
         append.add_argument(f"--{flag}", required=True)
     append.add_argument("--event", required=True, choices=EVENTS)
@@ -141,10 +143,24 @@ def _parse_command_json(raw: str | None) -> tuple[str, ...] | None:
     except json.JSONDecodeError as e:
         msg = f"--command-json が JSON ではない: {e}"
         raise LedgerError(msg) from e
-    if not isinstance(value, list) or not all(isinstance(c, str) for c in value):
-        msg = "--command-json は文字列のリスト"
+    if (
+        not isinstance(value, list)
+        or not value
+        or not all(isinstance(c, str) and c for c in value)
+    ):
+        msg = "--command-json は空でない文字列のリスト"
         raise LedgerError(msg)
     return tuple(value)
+
+
+def _check_append_args(args: argparse.Namespace, roster: Roster) -> None:
+    for flag in ("name", "address", "hub"):
+        if not getattr(args, flag):
+            msg = f"--{flag} は空でない文字列"
+            raise LedgerError(msg)
+    if args.preset is not None and args.preset not in roster.raw.get("presets", {}):
+        msg = f"--preset {args.preset!r} は roster に定義された preset でない"
+        raise RosterError(msg)
 
 
 def run_ledger(args: argparse.Namespace) -> None:
@@ -158,6 +174,10 @@ def run_ledger(args: argparse.Namespace) -> None:
     if args.lane not in roster.lanes:
         msg = f"未知のレーン {args.lane!r}（roster: {roster.path}）"
         raise RosterError(msg)
+    _check_append_args(args, roster)
+    command = _parse_command_json(args.command_json)
+    # 他レーンの台帳記録を防ぐため、自分がそのレーンの hub であることを確かめる
+    require_lane_hub(get_labels(args.hc, terminal_id(os.environ)), args.lane)
     append_event(
         roster.ledger,
         LedgerEvent(
@@ -168,7 +188,7 @@ def run_ledger(args: argparse.Namespace) -> None:
             event=args.event,
             hub=args.hub,
             preset=args.preset,
-            command=_parse_command_json(args.command_json),
+            command=command,
             template=args.template,
             brief=args.brief,
         ),

@@ -9,6 +9,8 @@ from typing import Any
 import pytest
 import yaml
 from _paths import SCRIPT
+from fake_hc import make_fake_hc
+from fake_hc import run_cli as fake_run_cli
 from hc_hub_lib.ledger import LedgerError, LedgerEvent, append_event, read_events
 
 EV = LedgerEvent(
@@ -146,14 +148,18 @@ def test_concurrent_appends_do_not_interleave(tmp_path: Path) -> None:
     assert len(read_events(p)) == 400
 
 
+HUB_LABELS = {"hc-hub.lane": "be", "hc-hub.role": "hub"}
+
+
 def _roster(directory: Path) -> Path:
     path = directory / ".hc-hub.yml"
     cfg = {
         "ledger": "ledger.jsonl",
         "defaults": {"approval": "auto"},
+        "presets": {"impl": {"role": "実装", "command": ["claude"]}},
         "lanes": {"be": {}, "fe": {}},
     }
-    path.write_text(yaml.safe_dump(cfg))
+    path.write_text(yaml.safe_dump(cfg, allow_unicode=True))
     return path
 
 
@@ -166,11 +172,39 @@ def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _append_cli(
+    roster: Path,
+    labels: dict[str, str] | None,
+    overrides: dict[str, str],
+    *extra: str,
+) -> subprocess.CompletedProcess[str]:
+    hc = make_fake_hc(
+        roster.parent, {} if labels is None else {"t5": {"labels": labels}}, []
+    )
+    values = {
+        "--lane": "be",
+        "--name": "w",
+        "--address": "tab:1",
+        "--event": "spawn",
+        "--hub": "h",
+        "--command-json": '["claude"]',
+    }
+    values.update(overrides)
+    flat = [x for pair in values.items() for x in pair]
+    return fake_run_cli(
+        "ledger", "append", "--roster", str(roster), "--hc", str(hc), *flat, *extra,
+        env_extra={"HC_TERMINAL_ID": "t5"},
+    )  # fmt: skip
+
+
 def _append(roster: Path, lane: str, name: str, *extra: str) -> None:
-    p = run_cli(
-        "ledger", "append", "--roster", str(roster), "--lane", lane,
-        "--name", name, "--address", "tab:1", "--event", "spawn",
-        "--hub", "h", *extra,
+    labels = {"hc-hub.lane": lane, "hc-hub.role": "hub"}
+    hc = make_fake_hc(roster.parent, {"t5": {"labels": labels}}, [])
+    p = fake_run_cli(
+        "ledger", "append", "--roster", str(roster), "--hc", str(hc),
+        "--lane", lane, "--name", name, "--address", "tab:1",
+        "--event", "spawn", "--hub", "h", *extra,
+        env_extra={"HC_TERMINAL_ID": "t5"},
     )  # fmt: skip
     assert p.returncode == 0, p.stderr
 
@@ -194,21 +228,60 @@ def test_cli_list_without_ledger_file_is_empty(tmp_path: Path) -> None:
 
 
 def test_cli_append_rejects_bad_command_json(tmp_path: Path) -> None:
-    p = run_cli(
-        "ledger", "append", "--roster", str(_roster(tmp_path)), "--lane", "be",
-        "--name", "w", "--address", "a", "--event", "spawn", "--hub", "h",
-        "--command-json", "{x",
-    )  # fmt: skip
+    p = _append_cli(_roster(tmp_path), HUB_LABELS, {"--command-json": "{x"})
     assert p.returncode == 2
     assert "command-json" in p.stderr
 
 
 def test_cli_append_unknown_lane_fails(tmp_path: Path) -> None:
-    p = run_cli(
-        "ledger", "append", "--roster", str(_roster(tmp_path)), "--lane", "zz",
-        "--name", "w", "--address", "a", "--event", "spawn", "--hub", "h",
-    )  # fmt: skip
+    p = _append_cli(
+        _roster(tmp_path), {**HUB_LABELS, "hc-hub.lane": "zz"}, {"--lane": "zz"}
+    )
     assert p.returncode == 2
+
+
+@pytest.mark.parametrize(
+    "labels",
+    [
+        {"hc-hub.lane": "fe", "hc-hub.role": "hub"},
+        {"hc-hub.lane": "be", "hc-hub.role": "impl"},
+        {"hc-hub.role": "hub"},
+        {},
+        None,
+    ],
+    ids=["other-lane", "not-hub", "no-lane", "no-labels", "unreadable-self"],
+)
+def test_cli_append_requires_own_lane_hub(
+    tmp_path: Path, labels: dict[str, str] | None
+) -> None:
+    roster = _roster(tmp_path)
+    p = _append_cli(roster, labels, {})
+    assert p.returncode == 2
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
+@pytest.mark.parametrize("flag", ["--name", "--address", "--hub"])
+def test_cli_append_rejects_empty_strings(tmp_path: Path, flag: str) -> None:
+    p = _append_cli(_roster(tmp_path), HUB_LABELS, {flag: ""})
+    assert p.returncode == 2
+    assert flag in p.stderr
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
+@pytest.mark.parametrize("raw", ["[]", '[""]', "[1]", '"claude"', "{}"])
+def test_cli_append_rejects_bad_command_list(tmp_path: Path, raw: str) -> None:
+    p = _append_cli(_roster(tmp_path), HUB_LABELS, {"--command-json": raw})
+    assert p.returncode == 2
+    assert "command-json" in p.stderr
+
+
+def test_cli_append_preset_must_be_defined(tmp_path: Path) -> None:
+    roster = _roster(tmp_path)
+    p = _append_cli(roster, HUB_LABELS, {}, "--preset", "nope")
+    assert p.returncode == 2
+    assert "nope" in p.stderr
+    p = _append_cli(roster, HUB_LABELS, {}, "--preset", "impl")
+    assert p.returncode == 0, p.stderr
 
 
 def test_cli_list_corrupt_ledger_exits_2(tmp_path: Path) -> None:

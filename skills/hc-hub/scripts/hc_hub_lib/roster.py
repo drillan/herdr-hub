@@ -1,5 +1,5 @@
 import re
-from collections.abc import Mapping
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -11,6 +11,7 @@ PLACEMENTS = ("tab", "hidden")
 DEFAULT_HANDOFF_AT = 0.8
 DEFAULT_PLACEMENT: Literal["tab"] = "tab"
 NAME_PATTERN = re.compile(r"[a-z0-9_-]{1,32}")
+RESERVED_NAME = "hub"
 
 ALLOWED_KEYS: Mapping[str, frozenset[str]] = {
     "top": frozenset({"presets", "defaults", "ledger", "lanes"}),
@@ -92,6 +93,15 @@ def _check_name(name: object, where: str) -> str:
         msg = f"{where} の名前 {name!r} は不正。1〜32 文字の a-z 0-9 - _ に限る"
         raise RosterError(msg)
     return name
+
+
+def _check_worker_name(name: object, where: str) -> str:
+    # hub は hub 自身の role ラベル値。worker の role と衝突すると判別できなくなる
+    checked = _check_name(name, where)
+    if checked == RESERVED_NAME:
+        msg = f"{where} の名前 {name!r} は hub 専用の予約語で使えない"
+        raise RosterError(msg)
+    return checked
 
 
 def _check_keys(node: Mapping[str, Any], stage: str, where: str) -> None:
@@ -183,10 +193,31 @@ def _validate_stage(
     return mapping
 
 
+class _DuplicateKeyError(yaml.YAMLError):
+    pass
+
+
 class _Yaml12BoolLoader(yaml.SafeLoader):
     # YAML 1.1 では on/off/yes/no が真偽値になり、未引用の `on:` キーが
     # True に化けて廃止キーの案内に届かない。真偽は true/false だけにする
-    pass
+
+    def construct_mapping(
+        self,
+        node: yaml.MappingNode,
+        deep: bool = False,  # noqa: FBT001, FBT002
+    ) -> dict[Hashable, Any]:
+        # 後の値が黙って前の値を上書きすると、設定の意図が失われる
+        seen: set[Hashable] = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=True)
+            if not isinstance(key, Hashable):
+                return super().construct_mapping(node, deep=deep)
+            if key in seen:
+                line = key_node.start_mark.line + 1
+                msg = f"キー {key!r} が重複している（{line} 行目）"
+                raise _DuplicateKeyError(msg)
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
 
 
 _Yaml12BoolLoader.yaml_implicit_resolvers = {
@@ -204,7 +235,7 @@ _Yaml12BoolLoader.add_implicit_resolver(
 
 def _read_yaml(path: Path) -> object:
     try:
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
     except OSError as e:
         msg = f"roster を読めない: {path}（{e.strerror}）"
         raise RosterError(msg) from e
@@ -233,7 +264,7 @@ def _validate_lane(
     agents = _mapping(lane_map.get("agents", {}), f"{where}.agents")
     for agent_name, agent in agents.items():
         agent_where = f"{where}.agents.{agent_name}"
-        _check_name(agent_name, f"{where}.agents")
+        _check_worker_name(agent_name, f"{where}.agents")
         if agent_name in seen_residents:
             msg = (
                 f"{agent_where}: 常駐 agent の名前がレーン "
@@ -259,7 +290,7 @@ def load_roster(path: Path) -> Roster:
         raise RosterError(msg)
     presets = _mapping(top.get("presets", {}), "presets")
     for name, preset in presets.items():
-        _check_name(name, "presets")
+        _check_worker_name(name, "presets")
         _validate_stage(preset, "preset", base, f"presets.{name}")
     _validate_stage(top.get("defaults", {}), "defaults", base, "defaults")
     lanes = _mapping(top.get("lanes", {}), "lanes")
@@ -307,7 +338,8 @@ def _merge(
     rules: list[Path] = []
     for stage in stages:
         merged.update({k: v for k, v in stage.items() if k != "rules"})
-        rules.extend(base / r for r in stage.get("rules", []))
+        rules.extend((base / r).resolve() for r in stage.get("rules", []))
+    rules = list(dict.fromkeys(rules))
     if "approval" not in merged:
         msg = f"{where}: approval がどの段にも書かれていない（既定値は持たない）"
         raise RosterError(msg)

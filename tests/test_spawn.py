@@ -142,7 +142,7 @@ def test_spawn_argv_brief_label(roster_path: Path) -> None:
     assert "hc-hub.brief=t/b.md" in a
 
 
-def test_spawn_argv_template_has_no_separator(roster_path: Path) -> None:
+def test_spawn_argv_template_task_follows_template(roster_path: Path) -> None:
     a = spawn_argv(
         worker(roster_path, "advisor"),
         "be",
@@ -153,8 +153,7 @@ def test_spawn_argv_template_has_no_separator(roster_path: Path) -> None:
         role="advisor",
         cwd=CWD,
     )
-    assert a[-2:] == ["advisor", "ask"]
-    assert "--" not in a
+    assert a[-3:] == ["--", "advisor", "ask"]
 
 
 def test_spawn_argv_tab_without_space_refuses(roster_path: Path) -> None:
@@ -428,3 +427,74 @@ def test_cli_spawn_argv_passes_cwd(tmp_path: Path, roster_path: Path) -> None:
     assert p.returncode == 0, p.stderr
     argv = json.loads(p.stdout)
     assert argv[argv.index("--cwd") + 1] == str(tmp_path)
+
+
+def _spawn(roster_path: Path, labels: dict[str, str], lane: str = "be") -> list[str]:
+    return spawn_argv(
+        worker(roster_path, "impl"),
+        lane,
+        "be-impl-1",
+        "x",
+        labels,
+        None,
+        role="impl",
+        cwd=CWD,
+    )
+
+
+@pytest.mark.parametrize(
+    "labels",
+    [
+        {L: "fe", R: "hub", "herdr.space": "sp1"},
+        {L: "be", R: "impl", "herdr.space": "sp1"},
+        {R: "hub", "herdr.space": "sp1"},
+        {L: "be", "herdr.space": "sp1"},
+        {},
+    ],
+    ids=["other-lane", "not-hub", "no-lane", "no-role", "no-labels"],
+)
+def test_spawn_argv_requires_own_lane_hub(
+    roster_path: Path, labels: dict[str, str]
+) -> None:
+    with pytest.raises(SpawnError, match=r"hc-hub start|自分のレーン"):
+        _spawn(roster_path, labels)
+
+
+def test_spawn_argv_reserves_hub_role(roster_path: Path) -> None:
+    with pytest.raises(SpawnError, match="hub"):
+        spawn_argv(
+            worker(roster_path, "impl"),
+            "be",
+            "be-impl-1",
+            "x",
+            SELF,
+            None,
+            role="hub",
+            cwd=CWD,
+        )
+
+
+def test_spawn_argv_template_puts_task_after_separator(roster_path: Path) -> None:
+    a = spawn_argv(
+        worker(roster_path, "advisor"),
+        "be",
+        "be-adv-1",
+        "-x を調べて",
+        SELF,
+        None,
+        role="advisor",
+        cwd=CWD,
+    )
+    assert a[-3:] == ["--", "advisor", "-x を調べて"]
+
+
+def test_cli_spawn_argv_refuses_non_hub_self(tmp_path: Path, roster_path: Path) -> None:
+    hc = make_fake_hc(tmp_path, {"t5": {"labels": {L: "be", R: "impl"}}}, [])
+    p = run_cli(
+        "spawn-argv", "--roster", str(roster_path), "--lane", "be",
+        "--preset", "impl", "--name", "be-impl-1", "--task", "x",
+        "--cwd", str(tmp_path), "--hc", str(hc),
+        env_extra={"HC_TERMINAL_ID": "t5"},
+    )  # fmt: skip
+    assert p.returncode == 2
+    assert p.stdout == ""

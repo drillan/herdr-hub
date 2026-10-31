@@ -531,3 +531,46 @@ def test_worker_without_valid_role_raises(tmp_path: Path, value: object) -> None
     cfg["presets"]["bad"] = {"command": ["claude"], "role": value}
     with pytest.raises(RosterError, match="role"):
         resolve_worker(load_roster(write(tmp_path, cfg)), "be", "bad")
+
+
+def test_preset_name_hub_is_reserved(tmp_path: Path) -> None:
+    cfg = cfg_of()
+    cfg["presets"]["hub"] = {"role": "x", "command": ["claude"]}
+    with pytest.raises(RosterError, match="hub"):
+        load_roster(write(tmp_path, cfg))
+
+
+def test_resident_name_hub_is_reserved(tmp_path: Path) -> None:
+    cfg = cfg_of()
+    cfg["lanes"]["be"]["agents"]["hub"] = {"preset": "reviewer"}
+    with pytest.raises(RosterError, match="hub"):
+        load_roster(write(tmp_path, cfg))
+
+
+def test_duplicate_top_level_key_raises(tmp_path: Path) -> None:
+    path = write(tmp_path, cfg_of())
+    path.write_text(path.read_text() + "ledger: other.jsonl\n")
+    with pytest.raises(RosterError, match="ledger"):
+        load_roster(path)
+
+
+def test_duplicate_nested_key_raises(tmp_path: Path) -> None:
+    path = write(tmp_path, cfg_of())
+    path.write_text(
+        "ledger: l.jsonl\n"
+        "defaults:\n  approval: auto\n  approval: manual\n"
+        "lanes:\n  be: {}\n"
+    )
+    with pytest.raises(RosterError, match="approval"):
+        load_roster(path)
+
+
+def test_rules_union_drops_repeated_paths_keeping_first(tmp_path: Path) -> None:
+    cfg = cfg_of(lanes__be__rules=["l.md", "d.md", "./l.md"])
+    cfg["presets"]["impl"]["rules"] = ["p.md", "l.md"]
+    rs = load_roster(write(tmp_path, cfg))
+    assert [p.name for p in resolve_worker(rs, "be", "impl").rules] == [
+        "d.md",
+        "l.md",
+        "p.md",
+    ]

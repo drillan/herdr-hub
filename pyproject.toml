@@ -14,6 +14,8 @@ pythonpath = ["skills/hc-hub/scripts", "tests"]
 [tool.ruff]
 # Markdown 内のコード片は計画・skill 文書の一部で、整形すると文書の差分になるため対象にしない
 extend-exclude = [".worktrees", ".superpowers", "*.md"]
+# 拡張子の無い CLI 本体も検査する
+extend-include = ["skills/hc-hub/scripts/hc-hub"]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -44,4 +46,6 @@ ignore = [
 [tool.mypy]
 strict = true
 mypy_path = "skills/hc-hub/scripts"
+# 拡張子の無い CLI 本体。`mypy .` は files を無視するため tests/test_static_checks.py でも検査する
+files = [".", "skills/hc-hub/scripts/hc-hub"]
 exclude = ["^\\.worktrees/", "^\\.superpowers/", "^\\.venv/"]
