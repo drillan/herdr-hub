@@ -1,6 +1,6 @@
 ---
 name: hc-hub
-description: herdr-core（`hc`）で、レーンごとの hub が複数のコーディングエージェントを起動・監視・停止する runbook。呼び出したエージェントが hub になる。「別エージェントに作業を頼みたい」「レーンごとに worker を束ねたい」「worker / reviewer を並行運用したい」「hc で agent 同士を連携させたい」で起動。HC_TERMINAL_ID が前提。旧来の herdr には herdr-hub を使う。
+description: herdr-core（`hc`）と Herdr app で、レーンごとの hub が複数のコーディングエージェントを起動・監視・停止する runbook。呼び出したエージェントが hub になる。「別エージェントに作業を頼みたい」「レーンごとに worker を束ねたい」「worker / reviewer を並行運用したい」「hc で agent 同士を連携させたい」で起動。HC_TERMINAL_ID が前提。hc の単発の操作や使い方の質問（hc ls の読み方、プログラムを 1 つ起動するだけ、など）には使わない。旧来の herdr には herdr-hub を使う。
 license: MIT
 ---
 
