@@ -10,7 +10,7 @@ Herdr 2（herdr-core、CLI は `hc`）の上で、レーンごとの hub が wor
 
 - レーンの定義・ラベル・操作前のガード → [references/lanes.md](references/lanes.md)
 - 承認待ちへの対応（hub が答える範囲） → [references/approvals.md](references/approvals.md)
-- エージェント固有の知識（Claude Code の実測） → [references/agents.md](references/agents.md)
+- エージェント固有の知識（Claude Code・opencode の実測） → [references/agents.md](references/agents.md)
 - roster と台帳（スキーマ・検証・`hc-hub` の使い方） → [references/roster.md](references/roster.md)
 - worker の起動・命名・配置 → [references/startup.md](references/startup.md)
 - 送受信・待機・着地の作法 → [references/messaging.md](references/messaging.md)
@@ -23,7 +23,13 @@ Herdr 2（herdr-core、CLI は `hc`）の上で、レーンごとの hub が wor
 
 ## §0 前提
 
-**CLI の呼び出し方。** 同梱の CLI は `uv run --script <この skill のディレクトリ>/scripts/hc-hub` で実行する（`<この skill のディレクトリ>` は、この SKILL.md があるディレクトリの絶対パス）。以降の文書の `hc-hub <サブコマンド> …` は、すべてこの呼び出しを指す。
+**CLI の呼び出し方。** 同梱の CLI は `uv run --script <この skill のディレクトリ>/scripts/hc-hub` で実行する（`<この skill のディレクトリ>` は、この SKILL.md があるディレクトリの絶対パス）。シェル関数として定義して使う。以降の文書の `hc-hub <サブコマンド> …` は、すべてこの呼び出しを指す。
+
+```bash
+hc-hub() { uv run --script <この skill のディレクトリ>/scripts/hc-hub "$@"; }
+```
+
+`H="uv run --script …"; $H validate` のように変数に入れて展開する形は、zsh が語分割しないので失敗する。関数なら bash でも zsh でも動く。
 
 **この skill を読むのは hub だけ。** worker は skill を読まない。hub が投げる briefing が作法の担保になる。
 
@@ -51,7 +57,7 @@ herdr-app --skill   # 画面（tab・split）を触るときだけ
 1. 「`blocked` は人に尋ねよ、`--force` で迂回するな」 → [approvals.md](references/approvals.md) の範囲では hub が画面を読んで答える。範囲外（分類器・hook・人の承認が要るルール）は人に上げる
 2. 「子は親と一緒に終わる」 → worker は `--outlive-parent` で起こす。hub が落ちても、人が手で交代しても、作業中の worker が一緒に止まらないようにするため。起動は `hc-hub spawn-argv` が組む
 
-この版で確かめたエージェントは Claude Code だけで、当面 worker は Claude に統一している。Codex は測っていない（[agents.md](references/agents.md)）。
+この版で確かめたエージェントは Claude Code と opencode（起動のみ）で、当面 worker は Claude に統一している。Codex は測っていない（[agents.md](references/agents.md)）。
 
 ## §1 roster（名簿）と hub の起動
 
@@ -94,7 +100,8 @@ roster は編成の意図（desired state）で、`lanes.<名>.agents` は空で
 
 - **起動前に棚卸しする。** §5 の最後の項目のとおり idle を棚卸しする。独立した仕事を 1 人に積まない
 - **起動は `hc-hub spawn-argv` を単独で打って終了コードを確かめ、0 のときだけ出力をそのまま `hc` に渡す。** worktree を `--cwd` に渡す（[references/worktrees.md](references/worktrees.md)）。最初の依頼は `hc run` に渡す。台帳に spawn を記録するのは、依頼が届いたと確認できてから
-- 起動後は `hc wait <t> --timeout 60` で待つ。timeout で返り状態が `null` なら `hc read` で画面を読む（信頼確認のダイアログなど）。ダイアログも状態の報告も無ければ人に知らせて止まる
+- 起動後は `hc wait <t> --timeout 60` で待つ。timeout で返り、`hc get --json` の `.status.state` が `null` なら `hc read` で画面を読む（信頼確認のダイアログが出ることがある。出ないこともある）。信頼の確認に hub が答えてよいのは、hub 自身が worker のために作った worktree のフォルダーだけで、それ以外は人に上げる。ダイアログも無く状態も報告されないときは、間を置いた複数回の観測で結論を出し（1 回の観測で決めない）、報告しなければ人に知らせて止まる
+- roster の `command` は hc の core の PATH から見つかる必要がある。見つからないと `hc run` が `spawn_failed: cannot start` で失敗する（[roster.md](references/roster.md)）
 - **監視は `hc wait --children any`。** 1 分ごとの見回りは作らない。状態の知らせで返ったときだけ `hc ls` と `hc get` で全 worker の状態を取り直す（`reason: timeout` は待ち直すだけ）
 - **停止は結果を受け取った hub が `hc kill` → `hc rm` で行い、台帳に記録する**
 
@@ -102,7 +109,7 @@ roster は編成の意図（desired state）で、`lanes.<名>.agents` は空で
 
 ## §4 承認待ち
 
-roster の `approval: auto | manual` で hub が答える範囲を切り替える（既定値は無く、書かれていなければ roster の検証でエラー）。hub は必ず `hc read` で画面を読んでから、`hc keys` か `hc send --force` で答える。「今後は確認しない」のような設定に残る選択肢は選ばず、その回だけ許可する。plan mode は計画が依頼の範囲内かを確かめてから承認する。
+roster の `approval: auto | manual` で hub が答える範囲を切り替える（既定値は無く、書かれていなければ roster の検証でエラー）。hub は必ず `hc read` で画面を読んでから、`hc keys` か `hc send --force` で答える。「今後は確認しない」のような設定に残る選択肢は選ばず、その回だけ許可する。ただし信頼の確認ダイアログだけは例外で、hub 自身が worker のために作った worktree のフォルダーに限り `Yes, I trust this folder` を選んでよい。それ以外のフォルダーの信頼の確認は人に上げる。plan mode は計画が依頼の範囲内かを確かめてから承認する。
 
 分類器・hook が止めたもの、人の承認が要るルールに当たったものは、`approval` に関係なく答えず、止めた表示を逐語で添えて人に上げる（待っている worker に `hc-hub.needs-human=1` を付ける）。判断がつかなければ人に上げる。hub 自身も、拒否された操作の表面を変えて通さない。
 

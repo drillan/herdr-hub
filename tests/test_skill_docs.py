@@ -1,6 +1,6 @@
 import re
 
-from _paths import DISCIPLINE_MAP, HERDR1, REFS, SHARED, SKILL_DIR
+from _paths import DISCIPLINE_MAP, HERDR1, REFS, ROOT, SHARED, SKILL_DIR
 from hc_hub_lib.roster import ALLOWED_KEYS
 
 PLACED = {
@@ -76,8 +76,13 @@ def test_approvals_table_matches_spec() -> None:
         ("hub が答える", "hub が答える"),
         ("hub が画面を読んで答える", "人に上げる"),
         ("人に上げる", "人に上げる"),
+        ("hub が答える", "hub が答える"),
+        ("人に上げる", "人に上げる"),
     ]
     assert rows[1][0].startswith("通常の権限確認")
+    assert "信頼" not in rows[0][0]
+    assert "hub 自身が worker のために作った worktree" in rows[3][0]
+    assert rows[4][0].startswith("フォルダの信頼の確認（それ以外")
 
 
 def test_approvals_mentions_required_rules() -> None:
@@ -181,3 +186,107 @@ def test_failure_modes_has_hc_specific_traps() -> None:
 def test_briefing_links_context_and_handover() -> None:
     t = (REFS / "briefing.md").read_text()
     assert "](context-and-handover.md)" in t
+
+
+def _ref(name: str) -> str:
+    return (REFS / name).read_text()
+
+
+def _skill() -> str:
+    return (SKILL_DIR / "SKILL.md").read_text()
+
+
+DEMO = ROOT / "examples/hc-hub-demo"
+OWN_WORKTREE = "hub 自身が worker のために作った worktree"
+
+
+def test_command_must_resolve_on_core_path() -> None:
+    for name in ["roster.md", "agents.md", "failure-modes.md"]:
+        assert "core の PATH" in _ref(name), name
+    assert "spawn_failed: cannot start" in _ref("failure-modes.md")
+    readme = (DEMO / "README.md").read_text()
+    assert "core の PATH" in readme
+    assert "opencode" in readme
+    roster = (DEMO / ".hc-hub.yml").read_text()
+    assert "[opencode, --prompt]" in roster
+    assert "/home/" not in roster + readme
+
+
+def test_status_is_read_as_state_with_repeated_observation() -> None:
+    texts = {
+        "agents.md": _ref("agents.md"),
+        "startup.md": _ref("startup.md"),
+        "failure-modes.md": _ref("failure-modes.md"),
+        "SKILL.md": _skill(),
+    }
+    for name, t in texts.items():
+        assert ".status.state" in t, name
+        assert "複数回" in t, name
+    assert "## opencode" in texts["agents.md"]
+    assert "--prompt" in texts["agents.md"]
+    assert "sh -c" in texts["agents.md"]
+
+
+def test_blocked_hub_send_rejection_is_documented() -> None:
+    assert "--force を使わずに待って送り直す" in _ref("briefing.md")
+    messaging = _ref("messaging.md")
+    assert "blocked から戻" in messaging
+    assert "hc read" in messaging.split("blocked から戻")[1].splitlines()[0]
+    assert "hub が blocked" in _ref("failure-modes.md")
+
+
+def test_startup_argv_expansion_is_shell_neutral() -> None:
+    t = _ref("startup.md")
+    assert "readarray" not in t
+    assert "xargs -0" in t
+    skill = _skill()
+    assert "hc-hub() {" in skill
+    assert "zsh" in skill
+
+
+def test_worker_log_lives_inside_untracked_worktree_path() -> None:
+    for f in SKILL_DIR.rglob("*.md"):
+        if f.name not in SHARED:
+            assert ".hc-hub/logs" not in f.read_text(), f
+    for name in ["context-and-handover.md", "briefing.md"]:
+        assert "<worktree>/.hc-hub/<名前>.log" in _ref(name), name
+    handover = _ref("context-and-handover.md")
+    assert "check-ignore" in handover
+    assert "info/exclude" in handover
+    assert "撤去する前" in handover
+
+
+def test_demo_hub_creates_worktree() -> None:
+    readme = (DEMO / "README.md").read_text()
+    assert "worker は herdr-hub の worktree を作り" not in readme
+    assert "hub が worktree を作" in readme
+    assert ".hc-hub/" in (DEMO / "rules/worker.md").read_text()
+
+
+def test_trust_dialog_is_described_as_possible_not_certain() -> None:
+    for name in ["agents.md", "startup.md", "failure-modes.md", "approvals.md"]:
+        t = _ref(name)
+        assert "出ることがある" in t, name
+        assert "毎回止まる" not in t, name
+    assert "出なかった" in _ref("agents.md")
+    assert "hc wait <t> --timeout 60" in _ref("startup.md")
+
+
+def test_trust_dialog_answered_only_for_own_worktrees() -> None:
+    for name in ["approvals.md", "agents.md", "startup.md", "failure-modes.md"]:
+        assert OWN_WORKTREE in _ref(name), name
+    assert OWN_WORKTREE in _skill()
+    approvals = _ref("approvals.md")
+    assert "Yes, I trust this folder" in approvals
+    assert "例外" in approvals
+
+
+def test_tab_placement_uses_terminal_id_and_mandatory_rename() -> None:
+    startup = _ref("startup.md")
+    assert "tab.rename" in startup
+    assert "省かない" in startup
+    assert "spaces[].tabs[].terminals[].terminal" in startup
+    assert "`where`" in startup
+    failure = _ref("failure-modes.md")
+    assert "`where`" in failure
+    assert "同じ tab" in failure

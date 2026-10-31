@@ -12,9 +12,13 @@ roster の `approval: auto | manual` で中段の行が切り替わる。値が 
 
 | 入力待ちの種類 | `auto` | `manual` |
 |---|---|---|
-| plan mode の承認、フォルダの信頼の確認、選択肢のメニュー、続行の確認 | hub が答える | hub が答える |
+| plan mode の承認、選択肢のメニュー、続行の確認 | hub が答える | hub が答える |
 | 通常の権限確認（分類器でも hook でもない「この Bash を実行してよいか」など） | hub が画面を読んで答える | 人に上げる |
 | 分類器・hook が止めた、人の承認が要るルールに当たった | 人に上げる | 人に上げる |
+| フォルダの信頼の確認（hub 自身が worker のために作った worktree のフォルダー） | hub が答える | hub が答える |
+| フォルダの信頼の確認（それ以外のフォルダー） | 人に上げる | 人に上げる |
+
+信頼の確認の行は `approval` に依らない。hub が答えてよいのは、**hub 自身が worker のために作った worktree** の絶対パスが画面のフォルダーと一致するときだけ（人の判断、2026-10-31）。一致しない、または読み取れないときは、人に上げる。
 
 この設定は hc-hub の層のもの。エージェント自身の権限モード（例: Claude Code の `--permission-mode`）とは独立で、後者は `command` の引数で選ぶ。判断がつかない場合は人に上げる。
 
@@ -31,6 +35,8 @@ roster の `approval: auto | manual` で中段の行が切り替わる。値が 
 ### 設定に残る選択肢は選ばない
 
 「今後は確認しない」「常に許可する」のような、設定ファイルや許可リストに残る選択肢は、`auto` でも選ばない。その回だけを許可する選択肢を選ぶ。その回だけの選択肢が無ければ、人に上げる。
+
+**例外は信頼の確認だけ。** `Yes, I trust this folder` は設定に残る選択肢だが、画面のフォルダーが hub 自身が worker のために作った worktree のときに限り、hub が選んでよい（人が決めた明示的な例外）。他のフォルダーでは選ばず、人に上げる。
 
 ### plan mode
 
@@ -61,5 +67,5 @@ roster の `approval: auto | manual` で中段の行が切り替わる。値が 
 
 ## 気づけない止まり方
 
-- 起動直後に信頼の確認ダイアログで止まると、状態が `null` のままで `blocked` の通知も来ず、`hc wait` も返らない（実測）。`hc wait` は返らない（timeout まで待つことになる）ので、`hc wait <t> --timeout 60` が timeout で返り、状態が `null` のままなら `hc read` で画面を確かめる（[startup.md](startup.md)）
+- 起動直後に信頼の確認ダイアログが出ることがある（新しく作った worktree で出なかった実測もある。[agents.md](agents.md)）。出ると、状態が `null` のままで `blocked` の通知も来ず、`hc wait` も返らない（実測）。`hc wait` は返らない（timeout まで待つことになる）ので、`hc wait <t> --timeout 60` が timeout で返り、状態が `null` のままなら `hc read` で画面を確かめる。状態は `hc get --json` の `.status.state` で読み、`null` と断定するのは複数回の観測のあとにする（[startup.md](startup.md)）
 - 状態を報告しないエージェントでは、承認待ちに気づけない。起動時の検査で止まり、人に知らせる（[agents.md](agents.md)）

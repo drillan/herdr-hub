@@ -20,6 +20,7 @@
 ## 返信
 
 - worker → hub は `hc send <hub のアドレス>`。worker がこの経路を知るのは briefing だけなので、briefing に「あなたの名前」「同じレーンの他 agent」「返信は hub 宛」を必ず書く（[briefing.md](briefing.md)）
+- **hub が `blocked`（人に質問している最中など）の間、worker から hub への `hc send` は exit 9 で拒否される**（実測）。worker は `--force` を使わずに待つ（[briefing.md](briefing.md)）。そのため、報告が届いていないことがある。**hub は blocked から戻ったら、`hc ls --label hc-hub.lane=<L>` と `hc get` で全 worker の状態を取り直し、`hc read` で worker の画面を確かめる。** 届かなかった報告は、worker の画面から読める（`hc-hub guard --op read <t>` を先に打つ）
 - **個別の依頼文にも返答経路（手段と宛先名）を明記する。** 「画面にだけ答えて送信を打たない」失敗形がある。依頼を出した側は、宛先が `idle`（または `done`）かつ自分に未着なら待たずに `hc read` でその画面を読む
 - 承認済みの成果物・測定値は worker → worker で直送してよい（同じレーン内に限る）。**判断・裁定・新規の指摘は hub 経由を維持する**
 

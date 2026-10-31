@@ -50,7 +50,7 @@ lanes:
 | `role_def` | 文字列（パス） | 長文の役割定義 .md。roster ファイルのあるディレクトリ基準の相対パス。worker には briefing の役割ブロックへ内容をそのまま注入し、hub のものは hub が起動時に読む |
 | `rules` | 文字列のリスト（パス） | その agent が従う規律 file（群）。delivery は宛先で分かれる（下記） |
 | `preset` | 文字列 | `presets` のキー名。未定義の preset は即エラー。`preset: null` や文字列以外もエラー |
-| `command` | 空でない文字列のリスト | 起動する argv。空要素もエラー |
+| `command` | 空でない文字列のリスト | 起動する argv。空要素もエラー。先頭の実行ファイルは hc の core の PATH から見つかる必要がある（下記） |
 | `template` | 文字列 | hc の template 名 |
 | `approval` | `auto` \| `manual` | hub が答える範囲（[approvals.md](approvals.md)）。既定値は持たず、どの段にも書かれていなければエラー |
 | `placement` | `tab` \| `hidden` | worker の見せ方。それ以外の値はエラー。既定は `tab`（[startup.md](startup.md)） |
@@ -61,6 +61,7 @@ lanes:
 | `lanes` | マッピング | レーンの定義。キーがレーン名 |
 
 - レーン名・preset 名・常駐 agent の名前は `^[a-z0-9_-]{1,32}$` に限る（hc の名前とラベルの値に使うため）。常駐 agent の名前は core 全体で一意なので、レーンをまたいで重複していればエラー。`hub` は hub 自身の `hc-hub.role` の値なので予約語で、preset 名にも常駐 agent 名にも使えない（エラー）
+- **`command` の先頭の実行ファイルは、hc の core の PATH から見つかる必要がある。** core の PATH は hub のシェルの PATH と違うことがある（実測: `~/.opencode/bin` の opencode は hub のシェルから見えたが core からは見えず、`hc run` が `spawn_failed: cannot start "opencode"` で失敗した）。`hc-hub validate` と `spawn-argv` はこの不一致を検出できない。直し方は 2 つ。`command` の先頭を絶対パスにするか、core の PATH にそのディレクトリを入れる（[agents.md](agents.md)、[failure-modes.md](failure-modes.md)）
 - `command` と `template` は 1 つの段に両方は書けない。統合後の解決結果は、ちょうど一方を持たなければならない。起動方法が解決できない常駐 agent は、roster の読み込み時にエラー。起動方法を持たない preset は読み込みでは通り、worker として起こそうとしたときにエラーになる（常駐 agent に個別に `command` を足す土台に使えるため）
 - `kind` は廃止（`command` か `template` に置き換える）、`transport` も廃止（通信は `hc send` に一本化）、`on`（別マシンを指す指定）は未対応。書かれていたら置き換え先を表示してエラーにする。`role_file` は `role_def` に改名済みで、書かれていたら改名を案内してエラーにする。別名として黙って読まない
 - roster の YAML が壊れている・読めない・UTF-8 でない場合もエラー。同じマッピングに同じキーが 2 回あれば（最上位でも入れ子でも）エラー。後のキーが前のキーを黙って上書きしない

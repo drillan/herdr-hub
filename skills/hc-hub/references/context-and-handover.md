@@ -40,7 +40,10 @@ hc read <t>
 
 交代コストの支配項は後任の context の再暖機で、発火時期に依存しない。発火時に生成する量を減らすため、次を常時行う。
 
-- worker は進捗・判断・罠をログ file へ随時追記する（briefing の作法に含める）。置き場は roster のディレクトリ（全レーンが共有する repo のメインのチェックアウトの直下。台帳や argv と同じ基準）の `.hc-hub/logs/<名前>.log`（非追跡。設計者の判断で、spec が定めた場所ではない）で、絶対パスを hub が briefing に書く
+- worker は進捗・判断・罠をログ file へ随時追記する（briefing の作法に含める）。置き場は worker の worktree の中の `<worktree>/.hc-hub/<名前>.log`（非追跡。設計者の判断で、spec が定めた場所ではない）で、絶対パスを hub が briefing に書く。roster のディレクトリの下には置かない。そこは worker の worktree の外なので、worker の Claude の PreToolUse フックが書き込みを止めた（実測）
+  - **非追跡であることを、起こす前に hub が確かめる。** `git -C <worktree> check-ignore -q .hc-hub/<名前>.log` が終了コード 0 なら無視されている。0 でなければ、`$(git -C <worktree> rev-parse --path-format=absolute --git-common-dir)/info/exclude` に `/.hc-hub/` の 1 行を追記し（`info/exclude` は同じ repo の worktree で共有される）、もう一度 `check-ignore` を打って 0 になることを確かめる。0 にならなければ止まって人に上げる
+  - **同じ worktree に起こした後任は、そのログを読む。** 交代で後任を同じ worktree に起こすときは、briefing に前任のログの絶対パスを書く
+  - **worktree を撤去する前に引き継ぎを済ませる。** ログは worktree の中にあるので、撤去すると消える。後任が読み終えた、または必要な内容を恒久層へ移したあとに撤去する（[worktrees.md](worktrees.md)）
 - handoff は「ログのパス + 差分のひとこと」で済ませる。発火時の生成コストが 0 に近づき、高い閾値でも書き切れる
 - 揮発知識を随時ファイルへ逃がす。「引き継ぐものが無ければ handoff は不要」が成り立つ状態を保つ
 - **試して駄目だったことを厚く残す。** 成功した手順は後任も発見するが、死に筋は書かないと同じ場所で同じ時間を燃やす
@@ -52,7 +55,7 @@ handoff で「どこに書けば届くか」を決めるため、情報の置き
 | クラス | 例 | 生存期間 |
 |---|---|---|
 | 恒久（hosted） | issue tracker、repo の追跡ファイル、PR 本文 | セッション・マシンを跨いで残る。裁定・決定の置き場 |
-| machine-local | `.hc-hub/` 配下のログ・台帳（非追跡）、shell 履歴 | そのマシン上では残るが、clone・別環境では消える。補助ログの置き場 |
+| machine-local | `.hc-hub/` 配下のログ・台帳（非追跡。worker のログは worktree の中で、worktree の撤去で消える）、shell 履歴 | そのマシン上では残るが、clone・別環境では消える。補助ログの置き場 |
 | 揮発 | エージェントの文脈、画面の表示（`hc read` の範囲） | compact / exit で消える。ここにだけある知識は恒久か machine-local へ逃がす |
 
 ⛔ **裁定・決定を揮発や machine-local のままにしない。** 届くべき相手が読める恒久層へ置く（裁定は正典か tracker へ、逐語と裁定日で）。

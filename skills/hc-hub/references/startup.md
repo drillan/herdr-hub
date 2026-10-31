@@ -40,17 +40,21 @@ hub は人の承認を求めずに worker を起こす。そのぶん、起こ�
      --task "<最初の依頼>" [--brief <依頼ファイルのパス>] > <roster のディレクトリ>/.hc-hub/argv-<名前>.json
    ```
 
-2. 終了コードが 0 だったときだけ、配列に展開して `hc` に渡す。配列が空なら `hc` を打たない
+2. 終了コードが 0 だったときだけ、NUL 区切りにして `xargs -0` で `hc` に渡す。配列が空なら `hc` を打たない
 
    ```bash
-   readarray -d '' -t ARGV < <(jq -j '.[] + "\u0000"' <roster のディレクトリ>/.hc-hub/argv-<名前>.json) && test "${#ARGV[@]}" -gt 0 && hc "${ARGV[@]}"
+   jq -e 'length > 0' <roster のディレクトリ>/.hc-hub/argv-<名前>.json > /dev/null \
+     && jq -j '.[] + "\u0000"' <roster のディレクトリ>/.hc-hub/argv-<名前>.json | xargs -0 hc
    ```
+
+   この形は bash でも zsh でも動く（bash 専用の配列読み込みは zsh では動かず、配列を変数に入れて展開する形もシェルで挙動が違う）。1 行目の `jq -e` は、空の配列と読み込みの失敗を非ゼロの終了コードにして、2 行目に進ませない。空白・引用符・`*`・`$` を含む要素は、そのまま 1 要素として渡る（bash と zsh で実測）。`xargs` は `hc` の標準入力を空にする。要素が非常に多く引数の長さの上限を超えると `xargs` は `hc` を複数回に分けて打つので、`spawn-argv` の出力がそこまで大きくなったら人に上げる
 
 - `spawn-argv` は `hc` に続く引数を JSON の配列で出す。要素の順序も中身も変えずに渡す
 - 自分のレーンの hub でない端末（`hc-hub start` を打っていない、role が `hub` でない、別レーンのラベルを持つ）で打つと、`spawn-argv` はエラーで止まる
 - preset ではなく常駐 agent を起こすときは `--preset <preset>` の代わりに `--agent <エントリ名>`（常駐 agent の名前の一覧は `hc-hub residents --lane <L>`）
 - エージェントの指定は `command`（argv の配列）か `template`（hc の template 名）のどちらか一方。引数とオプションの正典はインストール済みバイナリの `hc run --help`
 - エージェント固有の引数（必須の起動引数など）は command の argv に入れる（[agents.md](agents.md)）
+- worker のログは worktree の中の非追跡の場所 `<worktree>/.hc-hub/<名前>.log` に置く。起こす前に、非追跡であることを確かめる（手順は [context-and-handover.md](context-and-handover.md)）
 - 最初の依頼は hc run に渡す（`--task`）。起動中のエージェントへ後から送ると落ちうるため
 - `hc run` の応答（`--json`）の `address` を新しい worker のアドレスとして読む。サイドバーの並びから推測しない
 - `--no-notify` を付けない。`hc run --help` では「Don't type notes about it into its parent」で、付けると親へ知らせが届かなくなる。親への自動通知（`<hc>` のタグ）を、blocked などの知らせの経路に使う
@@ -67,12 +71,15 @@ workspace や worktree の新設は人間が明示した場合だけ。hc に wo
 - worker は hub と同じ space に新しい tab として出る（その tab に worker のターミナルが 1 つだけ入る。実測）
 - hub に `herdr.space` ラベルが無いのに `tab` が解決された場合は、黙って `hidden` にせずエラーで止まる
 - worker が増えると tab も人の画面に増える。worker の数だけ増えることを briefing で人に伝える
-- tab の名前は worker の名前にする。人数が増えても視認性が劣化せず、サイドバーで役割が読める。起動後に tab id を引いて付ける。
+- tab の名前は worker の名前にする。人数が増えても視認性が劣化せず、サイドバーで役割が読める。起動後に tab id を引いて付ける。**`tab.rename` は省かない必須の手順**（下の実測のとおり、省くと tab の見分けがつかなくなる）
 
 ```bash
 herdr-app ls                                                  # ターミナル id から tab id を引く
 herdr-app do tab.rename --id <tab id> --name <worker の名前>
 ```
+
+- **tab の判定は `herdr-app ls` の `spaces[].tabs[].terminals[].terminal` で行う。`hc get` の `where` では行わない。** `herdr-app ls` で worker のターミナル id を探し、それを含む tab が、その worker の tab である
+- 実測（2026-10-31、使い捨ての端末 4 つ）: `--label herdr.space=<space>` だけを付けて起こすと、各ターミナルは別々の新しい tab に入る（同時に 2 つ起こしても別々だった）。名前の無い tab の名前は並び順の番号で、新しい tab は 2 番目に差し込まれるため、既存の tab の番号がずれる。`hc get` の `where` ラベルは、この番号のずれでは更新されない（`tab.rename` では更新される）。そのため、別の tab にいる 2 つの worker が、どちらも `… / 2` と見えることがある。`where` が同じ番号でも「同じ tab」とは読まない。`tab.rename` を打ったあと、`where` が worker の名前に変わることで確かめる
 
 - `herdr-app do` の引数は `--<arg> <値>` の形（`id=…` の形は拒否される。実測）
 - 後片付けは `hc kill` で tab ごと消える（実測）。`tab.close` は要らない。ターミナルの記録は `hc rm` で消す
@@ -93,9 +100,9 @@ herdr-app do tab.rename --id <tab id> --name <worker の名前>
 
 1. **起動後に待つ。** `hc-hub guard --op wait <t>` の後に `hc wait <t> --timeout 60` を打つ。待ち時間の 60 秒は設計者の判断で、hc の既定（180 秒）では起動直後の確認に長すぎるため。返った理由で分ける。
    - **状態の知らせ**（`working`・`done`・`blocked` など、`reason: status`）で返った → エージェントは状態を報告している。通常どおり進める。`blocked` なら [approvals.md](approvals.md) に従う
-   - **`reason: timeout`** で返った → `hc get <t>` で `state` を見る。状態が報告されていれば（`null` でなければ）通常どおり進める。`null` のままなら `hc read <t>` で画面を読む
-     - 画面が確認のダイアログ（未信頼の cwd での信頼の確認など）なら、[approvals.md](approvals.md) の表に従って答える。実測では、ダイアログ中は状態を報告せず、`blocked` の通知も来ず、`hc wait` は返らなかった（timeout まで）。worktree の cwd も未信頼でありうるので、起動直後は毎回これを疑う。答えたら、もう一度 `hc wait <t> --timeout 60` から確かめる
-     - ダイアログも無く、状態も報告されないなら、そのエージェントは状態を報告しないとみなす。承認待ちに気づけないので、人に知らせて止まる（[agents.md](agents.md)）
+   - **`reason: timeout`** で返った → `hc get <t> --json` の `.status.state` を見る（`status` はオブジェクトで、`{"app":…,"msg":…,"state":"working"}` の形。`turn` は最初のターンが終わるまで 0 で、それが正常）。状態が報告されていれば（`null` でなければ）通常どおり進める。`null` のままなら `hc read <t>` で画面を読む
+     - 画面が確認のダイアログ（信頼の確認など）なら、[approvals.md](approvals.md) の表に従って答える。信頼の確認に hub が答えてよいのは、hub 自身が worker のために作った worktree のフォルダーだけ。それ以外のフォルダーは人に上げる。実測では、ダイアログ中は状態を報告せず、`blocked` の通知も来ず、`hc wait` は返らなかった（timeout まで）。一方、新しく作った worktree で起こした Claude Code にダイアログが出なかった実測もある。出ることがあるので、起動直後は毎回これを疑う。答えたら、もう一度 `hc wait <t> --timeout 60` から確かめる
+     - ダイアログも無く、状態も報告されないなら、間を置いて複数回観測する。1 回の観測（60 秒待った後の 1 回など）では結論にしない。複数回見ても `null` のままなら、そのエージェントは状態を報告しないとみなす。承認待ちに気づけないので、人に知らせて止まる（[agents.md](agents.md)）
 2. **依頼が届いたか。** `first_message.sent` は template で起動したときにしか返らない。command 起動ではタグも `first_message` も付かない（実測）。そこで、`hc get` の状態が `working` になる、またはターン（`turn`）が進むことで、依頼を受け取ったと判断する
 
 ### 届いていなければ送り直す
