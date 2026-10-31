@@ -90,7 +90,7 @@ roster は編成の意図（desired state）で、`lanes.<名>.agents` は空で
 
 ## §3 起動と寿命
 
-- **起動前に棚卸しする。** 同じレーンの idle を `hc ls --label` と `hc get` で確かめ、「既存で足りないか」を問う。独立した仕事を 1 人に積まない
+- **起動前に棚卸しする。** §5 の最後の項目のとおり idle を棚卸しする。独立した仕事を 1 人に積まない
 - **起動は `hc-hub spawn-argv` の出力をそのまま `hc` に渡す。** worktree を `--cwd` に渡す（[references/worktrees.md](references/worktrees.md)）。最初の依頼は `hc run` に渡す。台帳に spawn を記録するのは、依頼が届いたと確認できてから
 - 起動後に状態が `null` のままなら `hc read` で画面を読む（信頼確認のダイアログなど）
 - **監視は `hc wait --children any`。** 1 分ごとの見回りは作らない。返るたびに `hc ls` と `hc get` で全 worker の状態を取り直す

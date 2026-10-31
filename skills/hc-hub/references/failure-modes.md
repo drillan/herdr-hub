@@ -10,14 +10,13 @@
 | 状態が null のまま動かない（実測） | 起動後に `hc get` の `status` が `null` のまま。`blocked` の通知も来ず、`hc wait` も返らなかった | 未信頼の cwd で起こした Claude Code は、信頼確認ダイアログの間は状態を報告しない。状態が null のままなのは完了の証明ではない。`hc read` で画面を読み、フォルダの信頼の確認として [approvals.md](approvals.md) に従って答える（[startup.md](startup.md)） |
 | `unknown` や分類不能な状態を完了と誤読 | 状態が分類できない | 分類不能は完了の証明ではない。応答を `hc read` で確認する |
 | 完了した子が `hc wait --children any` に出てこない（実測） | 終了済みの子は一覧から外れ、待機を走らせていない間に終わった子は、次の待機でも報告されない。子が 0 件のときは待たずに即座に返る | 待機の戻り値だけで子の完了を数えない。返るたびに `hc ls --label hc-hub.lane=<L>` と `hc get` で全 worker の状態を取り直す（[messaging.md](messaging.md)） |
-| `hc wait` がターン終了で返り、完了と誤読（実測） | worker が「バックグラウンドで実行中です」と宣言しただけでターンを終え、`status: done` で返った | 返ったあとは画面を読み、宣言だけで終わったか完了かを見分ける。回収には状態だけでなく画面の文面の確認を併用する |
+| `hc wait` がターン終了で返り、完了と誤読（実測） | worker が「バックグラウンドで実行中です」と宣言しただけでターンを終え、`status: done` で返った | 返ったあとは画面を読み、宣言だけで終わったか完了かを見分ける。回収には状態だけでなく画面の文面の確認を併用する。Herdr 1 では、prompt の入力中の隙間で idle を観測して settled と判定され、作業中に wait が返る形でも出た |
 | `blocked` の子に `hc send` が通らない（実測） | exit 9、`kind: blocked`。`hint` は「画面を読め、または `--force`」 | 先に `hc read <t>` で画面を読む。選択肢の画面なら `hc keys <t> …` で押し、文字を送る必要があるときだけ `hc send --force <t> "…"`。画面を読まずに `--force` を使わない |
 | command で起こした worker に `<hc from=… reach=…>` のタグも `first_message` も付かない（実測） | `hc run` の出力は `address`・`agent`・`cwd`・`name`・`parent`・`state`・`turn` のみ。依頼は argv の文字列がそのまま最初の入力になる | 返信先をタグに頼らない。briefing に hub のアドレスを必ず書く（[briefing.md](briefing.md)）。依頼が届いたかは `hc get` の状態遷移で確かめる（[startup.md](startup.md)） |
 | hub が終わると worker が一緒に終わる | hub の終了・交代のあと worker の `state` が `finished` になる | hc の既定では子は親と一緒に終わる。worker は必ず `--outlive-parent` で起こす。手で `hc run` を組むとこれを落とす。起動は `hc-hub spawn-argv` の出力をそのまま使う（[startup.md](startup.md)） |
 | `herdr-app do` の引数が拒否される（実測） | `id=…` の形は `expected --<arg>` で拒否される | 引数は `--<arg> <値>` の形（例: `herdr-app do tab.rename --id <tab id> --name <名前>`）。引数の一覧は `herdr-app commands` で引く |
 | timeout や stalled を未配送と誤読して再送 | 送信が timeout や stalled を返す | 配送は済んでいる可能性が高い。再送前に hc read で届いたか確認する |
 | 画面から応答が読めない | `hc read` で行数を増やしても出ない | alternate screen 上で描画される応答は、host の scrollback に残らない。受け手に完全な応答をファイルに書いて、パスだけ返すよう依頼する（`hc read` で同じ現象が起きるかは未確認） |
-| `hc wait --children any` がターン途中に返る | prompt の入力中の隙間で idle を観測し、settled と判定する | 回収には状態だけでなく画面の文面を併用する。wait が返ったら画面を読み、宣言だけで終わったか完了かを見分ける |
 | エージェントが権限確認の画面で止まる | `blocked`。画面に承認 UI（「この Bash を実行してよいか」など） | hub は approval の範囲で画面を読んで答え、範囲外は人に上げる（従来の「hub は UI を回答しない」から変えた。[approvals.md](approvals.md)） |
 | worker の tab が意図しない space に出る | 想定と別の space に新しい tab が出る | tab の置き先を指定しないと意図しない space に出る。worker の `herdr.space` ラベルは hub 自身の値から決める（`hc-hub space`）。hub に無ければエラーで止まり、黙って `hidden` にしない（[startup.md](startup.md)） |
 | 制御コマンドが permission に拒否される | `hc send`・`hc run` などが分類器に拒否される | 複合コマンド（`cd`・`;`・パイプ・`echo >>` の同梱）は permission の allow の先頭一致から外れ、分類器の判定に回る。制御コマンドは単独で打つ（roster・ログの更新は別コマンドに分ける） |

@@ -153,6 +153,7 @@ def test_approval_missing_everywhere_raises(tmp_path: Path) -> None:
         (("lanes", "be", "agents", "be-rev"), "transport", "herdr", "hc send"),
         (("presets", "impl"), "placement", "pane", "tab か hidden"),
         (("presets", "impl"), "role_file", "r.md", "role_def"),
+        (("presets", "impl"), "on", "vps", "別マシン"),
     ],
 )
 def test_removed_keys_raise_with_replacement(
@@ -169,6 +170,35 @@ def test_removed_keys_raise_with_replacement(
     node[key] = value
     with pytest.raises(RosterError, match=expected):
         load_roster(write(tmp_path, cfg))
+
+
+def test_unquoted_on_key_is_reported_as_remote_machine(tmp_path: Path) -> None:
+    path = write(tmp_path, base())
+    text = path.read_text().replace("  impl:\n", "  impl:\n    on: vps\n", 1)
+    path.write_text(text)
+    with pytest.raises(RosterError, match="別マシン"):
+        load_roster(path)
+
+
+@pytest.mark.parametrize(
+    ("edit", "match"),
+    [
+        ({"defaults__approval": "yes"}, "approval は auto か manual.*'yes'"),
+        ({"presets__impl__placement": "off"}, "placement は tab か hidden.*'off'"),
+        ({"presets__impl__handoff_at": True}, "handoff_at"),
+    ],
+)
+def test_yaml_1_1_booleans_stay_strings(
+    tmp_path: Path, edit: dict[str, Any], match: str
+) -> None:
+    path = write(tmp_path, base())
+    value = next(iter(edit.values()))
+    text = yaml.safe_dump(cfg_of(**edit), allow_unicode=True)
+    if isinstance(value, str):
+        text = text.replace(f"'{value}'", value)
+    path.write_text(text)
+    with pytest.raises(RosterError, match=match):
+        load_roster(path)
 
 
 def test_remote_machine_key_raises(tmp_path: Path) -> None:

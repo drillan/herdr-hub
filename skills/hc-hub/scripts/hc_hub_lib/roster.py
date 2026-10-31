@@ -183,6 +183,25 @@ def _validate_stage(
     return mapping
 
 
+class _Yaml12BoolLoader(yaml.SafeLoader):
+    # YAML 1.1 では on/off/yes/no が真偽値になり、未引用の `on:` キーが
+    # True に化けて廃止キーの案内に届かない。真偽は true/false だけにする
+    pass
+
+
+_Yaml12BoolLoader.yaml_implicit_resolvers = {
+    first: [
+        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:bool"
+    ]
+    for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+_Yaml12BoolLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:bool",
+    re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"),
+    list("tTfF"),
+)
+
+
 def _read_yaml(path: Path) -> object:
     try:
         text = path.read_text()
@@ -193,7 +212,7 @@ def _read_yaml(path: Path) -> object:
         msg = f"roster が UTF-8 ではない: {path}（{e}）"
         raise RosterError(msg) from e
     try:
-        return yaml.safe_load(text)
+        return yaml.load(text, Loader=_Yaml12BoolLoader)  # noqa: S506
     except yaml.YAMLError as e:
         msg = f"roster の YAML が壊れている: {path}（{e}）"
         raise RosterError(msg) from e
