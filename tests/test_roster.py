@@ -11,6 +11,7 @@ from hc_hub_lib.roster import (
     ALLOWED_KEYS,
     RosterError,
     load_roster,
+    load_roster_text,
     resident_names,
     resolve_hub,
     resolve_resident,
@@ -574,3 +575,25 @@ def test_rules_union_drops_repeated_paths_keeping_first(tmp_path: Path) -> None:
         "l.md",
         "p.md",
     ]
+
+
+def test_load_roster_text_matches_file_loader(tmp_path: Path) -> None:
+    text = (
+        "presets:\n  impl: {role: 実装, command: [claude]}\n"
+        "defaults: {approval: manual}\nledger: .hc-hub/ledger.jsonl\n"
+        "lanes:\n  be: {agents: {}}\n"
+    )
+    path = tmp_path / ".hc-hub.yml"
+    roster = load_roster_text(text, path)
+    assert roster.ledger == tmp_path / ".hc-hub/ledger.jsonl"
+    assert roster.lanes == ("be",)
+
+
+def test_load_roster_text_rejects_reserved_preset(tmp_path: Path) -> None:
+    text = (
+        "presets:\n  hub: {role: x, command: [claude]}\n"
+        "defaults: {approval: auto}\nledger: l.jsonl\n"
+        "lanes: {be: {agents: {}}}\n"
+    )
+    with pytest.raises(RosterError):
+        load_roster_text(text, tmp_path / ".hc-hub.yml")

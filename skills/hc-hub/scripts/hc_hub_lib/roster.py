@@ -233,15 +233,18 @@ _Yaml12BoolLoader.add_implicit_resolver(
 )
 
 
-def _read_yaml(path: Path) -> object:
+def _read_text(path: Path) -> str:
     try:
-        text = path.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8")
     except OSError as e:
         msg = f"roster を読めない: {path}（{e.strerror}）"
         raise RosterError(msg) from e
     except UnicodeDecodeError as e:
         msg = f"roster が UTF-8 ではない: {path}（{e}）"
         raise RosterError(msg) from e
+
+
+def _parse_yaml(text: str, path: Path) -> object:
     try:
         return yaml.load(text, Loader=_Yaml12BoolLoader)  # noqa: S506
     except yaml.YAMLError as e:
@@ -282,7 +285,12 @@ def _validate_lane(
 
 def load_roster(path: Path) -> Roster:
     path = path.resolve()
-    top = _mapping(_read_yaml(path), "roster")
+    return load_roster_text(_read_text(path), path)
+
+
+def load_roster_text(text: str, path: Path) -> Roster:
+    path = path.resolve()
+    top = _mapping(_parse_yaml(text, path), "roster")
     base = path.parent
     _check_keys(top, "top", "roster")
     if "ledger" not in top or not isinstance(top["ledger"], str) or not top["ledger"]:
