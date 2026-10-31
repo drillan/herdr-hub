@@ -5,9 +5,22 @@ from typing import Any
 from hc_hub_lib.guard import HUB_ROLE, LANE, ROLE, check_placement_tab
 from hc_hub_lib.roster import NAME_PATTERN, Resolved, Roster, RosterError
 
+STATE_DIR = ".hc-hub"
+
 
 class SpawnError(Exception):
     pass
+
+
+def ensure_state_dir(roster: Roster) -> Path:
+    # spawn-argv の出力を受ける置き場。台帳に書く前の最初の起動でも要る
+    path = roster.path.parent / STATE_DIR
+    try:
+        path.mkdir(exist_ok=True)
+    except OSError as e:
+        msg = f"{path} を作れない: {e}"
+        raise SpawnError(msg) from e
+    return path
 
 
 def start_hub(

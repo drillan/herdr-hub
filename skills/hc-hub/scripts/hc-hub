@@ -60,7 +60,13 @@ from hc_hub_lib.roster import (
     resolve_resident,
     resolve_worker,
 )
-from hc_hub_lib.spawn import SpawnError, require_lane_hub, spawn_argv, start_hub
+from hc_hub_lib.spawn import (
+    SpawnError,
+    ensure_state_dir,
+    require_lane_hub,
+    spawn_argv,
+    start_hub,
+)
 from hc_hub_lib.workspace import (
     WorkspaceError,
     require_main_checkout_top,
@@ -262,7 +268,9 @@ def run_start(args: argparse.Namespace, me: str) -> None:
             raise HcError(msg)
         addresses.append(address)
     hubs = [get_terminal(args.hc, a) for a in addresses]
-    run_hc(args.hc, ["label", me, *start_hub(roster, args.lane, me, hubs)])
+    labels = start_hub(roster, args.lane, me, hubs)
+    ensure_state_dir(roster)
+    run_hc(args.hc, ["label", me, *labels])
 
 
 def run_spawn_argv(args: argparse.Namespace, me: str) -> None:

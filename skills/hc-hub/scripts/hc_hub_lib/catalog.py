@@ -37,10 +37,13 @@ KNOWN_AGENTS: tuple[KnownAgent, ...] = (
     KnownAgent(
         name="devin",
         executable="devin",
-        argv=("devin",),
+        argv=("devin", "--"),
         status_report="実測済み（2026-10-31）",
-        first_task="未測定（`hc send` で届くことは実測済み）",
-        note="承認待ちの状態と `--permission-mode` を省いたときの挙動は未測定",
+        first_task="`--` の後ろの値（実測済み）",
+        note=(
+            "`--permission-mode` を省くと、書き込みと `hc send` のたびに"
+            "承認待ち（blocked）で止まる"
+        ),
     ),
     KnownAgent(
         name="codex",

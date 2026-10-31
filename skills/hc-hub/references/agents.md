@@ -16,14 +16,14 @@
 |---|---|---|---|
 | claude | `claude` | 実測済み | 位置引数（実測済み） |
 | opencode | `opencode --prompt` | 実測済み | `--prompt` の値（実測済み） |
-| devin | `devin` | 実測済み（2026-10-31） | 未測定（`hc send` で届くことは実測済み） |
+| devin | `devin --` | 実測済み（2026-10-31） | `--` の後ろの値（実測済み） |
 | codex | `codex --no-daemon` | 未測定 | 未測定 |
 | copilot | `copilot` | 未測定 | 未測定 |
 | pi | `pi` | 未測定 | 未測定 |
 
 - `hc-hub spawn-argv` は、最初の依頼を argv の末尾に足す。「最初の依頼の渡し方」が未測定のエージェントは、この形で依頼が届くかが分からない
 - 未測定のエージェントも選べる。ただし `detect` の出力と、hub が人に示す提案に、どの列が未測定かを明示する
-- 注記: opencode は位置引数がディレクトリと解釈される。Devin は承認待ちの状態と、`--permission-mode` を省いたときの挙動が未測定。Codex の `--no-daemon` は hc の手引き（`hc --skill`）による
+- 注記: opencode は位置引数がディレクトリと解釈される。Devin は `--permission-mode` を省くと、書き込みと `hc send` のたびに承認待ち（`blocked`）で止まる。Codex の `--no-daemon` は hc の手引き（`hc --skill`）による
 
 ## 起動直後の検査
 
@@ -53,12 +53,14 @@ opencode v2.2.5 で確かめたこと（2026-10-31。対話の画面の起動だ
 
 ## Devin
 
-hc 0.1.15・Devin CLI v3000.11.234 で確かめたこと（2026-10-31。対話の画面の起動と、状態の報告・`hc send`・`hc read` まで）。
+hc 0.1.15・Devin CLI v3000.11.234 で確かめたこと（2026-10-31。対話の画面の起動、状態の報告、`hc send`・`hc read`、最初の依頼の渡し方、信頼の確認と承認待ち）。
 
 - 状態を報告する（`status.app` が `devin`）。ターンを終えると `idle` から `done` に変わる
 - `hc send` で依頼が届く
 - `hc read` の画面に文脈の使用率が出る（例: `Context: 29k / 200k tokens (14%)`）。交代判定の観測に使える（[context-and-handover.md](context-and-handover.md)）
-- 承認待ちの状態の報告と、答えるキーは未測定。`--permission-mode` を省いたときの挙動も未測定。最初の依頼を argv で渡せるかも未測定なので、`spawn-argv` の末尾に足す形で届くかは分からない
+- 最初の依頼は `--` の後ろに渡す。roster の `command` は `[devin, --]` とし、`spawn-argv` が依頼を末尾に足す。`--` が無いと依頼はパスと解釈され、`… is neither a known subcommand nor an existing path` で exit 2 になる
+- 新しい worktree で起こすと、まず信頼の確認（`Do you trust the authors of this directory?`）が出る。出ている間、`.status` は `null` のまま。`1 Yes, trust` が選ばれた状態なので、`hc keys <t> enter` で通る（答えてよい条件は [approvals.md](approvals.md)）。通したあとは `idle` になる
+- `--permission-mode` を省くと、ファイルの書き込みと `hc send` のたびに `status.kind: permission`・`state: blocked` で止まる。書き込みの画面は `Allow Write(<worktree>)` / `Accept edits mode` / `Bypass mode` / `Deny`、コマンドの画面は `Allow ← Once → Exec(hc send)`（範囲の既定は `Once`）。どちらも `enter` でその回だけ許可する。`--permission-mode` の値ごとの挙動は未測定
 
 ## Codex
 

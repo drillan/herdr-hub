@@ -226,6 +226,44 @@ def test_cli_start_labels_self(tmp_path: Path, roster_path: Path) -> None:
     assert (tmp_path / "label.log").read_text() == "t5 hc-hub.lane=be hc-hub.role=hub\n"
 
 
+def test_cli_start_creates_state_dir(tmp_path: Path, roster_path: Path) -> None:
+    hc = make_fake_hc(tmp_path, {"t5": {"labels": {}}}, [])
+    state_dir = roster_path.parent / ".hc-hub"
+    assert not state_dir.exists()
+    p = run_cli(
+        "start",
+        "--roster",
+        str(roster_path),
+        "--lane",
+        "be",
+        "--hc",
+        str(hc),
+        env_extra={"HC_TERMINAL_ID": "t5"},
+    )
+    assert p.returncode == 0, p.stderr
+    assert state_dir.is_dir()
+
+
+def test_cli_start_rejects_state_dir_that_is_a_file(
+    tmp_path: Path, roster_path: Path
+) -> None:
+    hc = make_fake_hc(tmp_path, {"t5": {"labels": {}}}, [])
+    (roster_path.parent / ".hc-hub").write_text("x")
+    p = run_cli(
+        "start",
+        "--roster",
+        str(roster_path),
+        "--lane",
+        "be",
+        "--hc",
+        str(hc),
+        env_extra={"HC_TERMINAL_ID": "t5"},
+    )
+    assert p.returncode == 2
+    assert ".hc-hub" in p.stderr
+    assert not (tmp_path / "label.log").exists()
+
+
 def test_cli_start_refuses_when_other_hub_live(
     tmp_path: Path, roster_path: Path
 ) -> None:
