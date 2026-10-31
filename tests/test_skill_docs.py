@@ -349,3 +349,14 @@ def test_init_flow_states_git_prerequisite_and_abs_path() -> None:
     roster = _ref("roster.md")
     for word in ("--abs-path", "absolute_paths", "別のマシンでは書き直す"):
         assert word in roster
+
+
+def test_briefing_requires_evidence_for_test_discrimination_claims() -> None:
+    t = _ref("briefing.md")
+    fixed = t.split("## テストと CI は測らない")[1].split("```")[0]
+    # 依頼文に注入する固定文の中にないと reviewer に届かない
+    for w in ["壊し方", "実行した", "未実行", "git archive", "3 件まで"]:
+        assert w in fixed, w
+    assert "起きたことを起きた後に書く" in t
+    assert "所見 0 件" in t
+    assert "取り直す" in t.split("所見 0 件")[1]
