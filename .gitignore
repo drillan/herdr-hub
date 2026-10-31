@@ -12,3 +12,6 @@
 .worktrees/
 # subagent-driven-development の作業領域
 .superpowers/
+
+.venv/
+__pycache__/

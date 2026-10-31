@@ -1,0 +1,46 @@
+[project]
+name = "hc-hub-dev"
+version = "0.0.0"
+description = "hc-hub skill の開発専用環境（配布物ではない）"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest", "pyyaml", "types-PyYAML", "ruff", "mypy"]
+
+[tool.pytest.ini_options]
+pythonpath = ["skills/hc-hub/scripts", "tests"]
+
+[tool.ruff]
+extend-exclude = [".worktrees", ".superpowers"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "D1",      # 公開要素ごとの docstring を強制しない。名前と型で What を表す
+  "D203",    # D211 と排他
+  "D213",    # D212 と排他
+  "COM812",  # formatter と衝突する
+  "ISC001",  # formatter と衝突する
+  "CPY001",  # 著作権表示を各ファイルに置かない（LICENSE が正本）
+  "RUF001",  # 日本語のエラーメッセージに全角括弧を使う
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+  "INP001",  # tests は pythonpath 指定で import する。パッケージにしない
+  "S101",    # pytest は assert を使う
+  "S603",    # CLI を subprocess で実行して検証する
+  "PLR2004", # 期待値のリテラルがテストの主題
+]
+
+"skills/hc-hub/scripts/hc-hub" = [
+  "T201",    # 標準出力・標準エラーが CLI の出力そのもの
+]
+
+[tool.mypy]
+strict = true
+mypy_path = "skills/hc-hub/scripts"
+exclude = ["^\\.worktrees/", "^\\.superpowers/", "^\\.venv/"]
