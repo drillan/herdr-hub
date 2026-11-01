@@ -6,6 +6,7 @@ herdr-core（CLI は `hc`）の上で、**レーンごとの hub** が複数の�
 
 - 前提は `HERDR_ENV=1` ではなく `HC_TERMINAL_ID`。操作は `herdr` ではなく `hc` で行う
 - roster は `.hc-hub.yml`。**レーン**（`lanes:`）ごとに hub と worker を束ね、台帳（`ledger`）に起動・停止を追記する。`kind` と `transport` は廃止し、起動方法は `command` か `template`、通信は `hc send` に一本化した
+- worker は作業のたびに hub が起こし、結果を受け取ったら止めて片付ける（herdr-hub は着地後も待機させる）。待機させておきたい agent は、roster の `lanes.<名>.agents` に常駐 agent として書く。常駐 agent は着地しても止めない
 - 操作の前に `hc-hub guard` でレーンのラベルを検査し、他レーンの端末を触らない
 - 承認待ちには `approval: auto | manual` の範囲で hub が答える（分類器・hook・人の承認が要るルールは人へ上げる）。フォルダの信頼の確認に hub が答えるのは、hub 自身が worker のために作った worktree だけで、それ以外は人へ上げる
 - worker は hub と同じ space に 1 人 1 tab で出る。hub は tab の名前を worker の名前に付け替える（名前の無い tab は並び順の番号で、新しい tab が差し込まれると番号がずれる）

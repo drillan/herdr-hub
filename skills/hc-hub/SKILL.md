@@ -112,7 +112,7 @@ roster は編成の意図（desired state）で、`lanes.<名>.agents` は空で
 - 起動後は `hc wait <t> --timeout 60` で待つ。timeout で返り、`hc get --json` の `.status.state` が `null` なら `hc read` で画面を読む（信頼確認のダイアログが出ることがある。出ないこともある）。信頼の確認に hub が答えてよいのは、hub 自身が worker のために作った worktree のフォルダーだけで、それ以外は人に上げる。ダイアログも無く状態も報告されないときは、間を置いた複数回の観測で結論を出し（1 回の観測で決めない）、報告しなければ人に知らせて止まる
 - roster の `command` は hc の core の PATH から見つかる必要がある。見つからないと `hc run` が `spawn_failed: cannot start` で失敗する（[roster.md](references/roster.md)）
 - **監視は `hc wait --children any`。** 1 分ごとの見回りは作らない。状態の知らせで返ったときだけ `hc ls` と `hc get` で全 worker の状態を取り直す（`reason: timeout` は待ち直すだけ）
-- **停止は結果を受け取った hub が `hc kill` → `hc rm` で行い、台帳に記録する**
+- **動的な worker の停止は、結果を受け取った hub が `hc kill` → `hc rm` で行い、台帳に記録する。** 常駐 agent は止めない。着地したら待機のまま残し、次の依頼を `hc send` で送る。止めるのは人が指示したときだけ。常駐 agent かどうかは `hc-hub residents --lane <L>` の名前の一覧で見分ける
 
 手順の正典 → [references/startup.md](references/startup.md)、[references/messaging.md](references/messaging.md)
 

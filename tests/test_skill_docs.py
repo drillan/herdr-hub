@@ -373,3 +373,14 @@ def test_worktrees_doc_places_reviewers_and_handles_missing_origin() -> None:
     assert ".hc-hub/archive/<名前>/" in t
     assert "read-only の走査・判定）— main checkout" not in t
     assert ".hc-hub/archive/" in _ref("context-and-handover.md")
+
+
+def test_stop_rule_separates_dynamic_workers_from_residents() -> None:
+    skill = (SKILL_DIR / "SKILL.md").read_text()
+    section3 = skill.split("## §3")[1].split("\n## ")[0]
+    landing = _ref("messaging.md").split("## 着地と停止")[1].split("\n## ")[0]
+    for t in (section3, landing):
+        assert "常駐 agent は止めない" in t
+        assert "hc-hub residents --lane <L>" in t
+    # herdr-hub から引き継いだ「待機は既定状態」が、止める規則と並んで矛盾していた
+    assert "待機は既定状態" not in landing

@@ -180,7 +180,7 @@
 | D169 | messaging go・承認 / hub の go 文には同じ値を併記する | hub の go 文には同じ値を併記する（plan go <path> <sha256 先頭12>）。worker は受けたら手元の版と突合してから進み、一致しなければ進まず報告する | そのまま | references/messaging.md | plan go <path> | - |
 | D170 | messaging go・承認 / go の後に対象を書き換えたら go は失効 | go の後に対象を書き換えたら go は失効する。再報告して取り直す | そのまま | references/messaging.md | 対象を書き換えたら go は失効 | - |
 | D171 | messaging ## 着地 | 着地の作法の節。着地後は何も送らない | そのまま | references/messaging.md | 着地後は何も送らない | - |
-| D172 | messaging 着地 / 担当分が着地し次の割り当てが無いなら何も送らない | 担当分が着地し次の割り当てが無いなら、その agent へは何も送らない。「終了です」通知も送らない（待機は既定状態） | そのまま | references/messaging.md | 「終了です」通知も送らない | - |
+| D172 | messaging 着地 / 担当分が着地し次の割り当てが無いなら何も送らない | 担当分が着地し次の割り当てが無いなら、その agent へは何も送らない。「終了です」通知も送らない。待機を既定とするのは常駐 agent だけで、動的な worker は結果を受け取ったら止める（2026-11-01） | 変える | references/messaging.md | 「終了です」通知も送らない | - |
 | D173 | messaging 着地 / 着地報告への返信・受領確認・評価の擦り合わせはしない | 着地報告への返信・受領確認・評価の擦り合わせはしない | そのまま | references/messaging.md | 着地報告への返信 | - |
 | D174 | messaging 着地 / **例外は 1 つ** | 例外は 1 つ: 走行中の review・照会を止める「停止」の 1 行。merge・完了を走行中の側は観測できない | そのまま | references/messaging.md | 例外は 1 つ | - |
 | D175 | messaging ### 「agent を終わらせる」は pane close まで | 終了の完了形は、agent の exit ではなく後始末（hc kill → hc rm、台帳へ stop の記録）まで | 変える | references/messaging.md | 終了の完了形 | - |
