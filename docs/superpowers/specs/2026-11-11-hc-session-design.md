@@ -37,7 +37,7 @@
 
 | 印 | 条件 | restore の扱い |
 |---|---|---|
-| `[running]` | 前面にプログラムがある（`foreground.pid` ≠ 端末の `pid`） | 送らない |
+| `[running]` | 前面にプログラムがある（`foreground.pid` ≠ 端末の `pid`）、または端末の最初のプロセスが `claude`（hc-hub spawn の worker） | 送らない |
 | `[exited]` | 前面がシェルで、シェルの起動が `claude.at` 以前 | 送らない（そのシェルの中で Claude が普通に終わった） |
 | `[missing]` | 前面がシェルで、シェルの起動が `claude.at` より後、かつ記録のファイルが無い | 送らずにエラー |
 | `[restore]` | 前面がシェルで、シェルの起動が `claude.at` より後 | 送る |

@@ -203,7 +203,9 @@ def mark_of(proc: Path, term: Mapping[str, Any], labels: Mapping[str, Any]) -> s
     if not isinstance(root, int) or not isinstance(fg_pid, int):
         # 起動直後の端末は foreground が null のことがある。他の端末の判定は続ける
         return "unknown"
-    if fg_pid != root:
+    # hc-hub spawn の worker は端末の最初のプロセスが claude そのものなので、
+    # 前面が最初のプロセスと同じでもシェルとは限らない
+    if fg_pid != root or comm(proc, root) == "claude":
         return "running"
     if start_ms(proc, root) <= int(labels["claude.at"]):
         return "exited"

@@ -319,3 +319,24 @@ def test_unknown_foreground_is_reported_without_stopping_others(tmp_path: Path) 
     p = _run(hc, proc, "restore")
     assert p.returncode == 1
     assert [a[0] for a in _log(tmp_path, "send.log")] == ["t1"]
+
+
+def test_claude_as_terminal_root_program_is_running(tmp_path: Path) -> None:
+    # hc-hub spawn の worker は端末の最初のプロセスが claude そのもの（2026-11-11 実測）
+    proc = _proc(tmp_path)
+    _proc_entry(proc, "40", "claude", 1, BTIME + 30)
+    _proc_entry(proc, "41", "claude", 1, BTIME - 500)
+    hc = _fake_hc(
+        tmp_path,
+        {
+            "t9": _term(40, 40, _labels(tmp_path, SID, BTIME - 100)),
+            "t10": _term(41, 41, _labels(tmp_path, SID2, BTIME - 100)),
+        },
+    )
+    p = _run(hc, proc, "status")
+    assert p.returncode == 0, p.stderr
+    assert "[running] t9 " in p.stdout
+    assert "[running] t10 " in p.stdout
+    p = _run(hc, proc, "restore")
+    assert p.returncode == 0
+    assert _log(tmp_path, "send.log") == []
