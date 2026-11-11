@@ -41,7 +41,7 @@ hc-hub() { uv run --script <この skill のディレクトリ>/scripts/hc-hub "
 hc-hub preflight
 ```
 
-`preflight` は `HC_TERMINAL_ID` が設定されていることと、hc の通知が無効（`notes = false`）でないことを確かめる。通知が無いと、親への通知も `<hc>` のタグも出ず、承認待ちに気づく経路が無くなる。worker の起動に `--no-notify` は付けない。`herdr-app` のウィンドウが開いていることは前提にしない。
+`preflight` は `HC_TERMINAL_ID` が設定されていることと、hc の通知が無効（`notes = false`）でないことを確かめる。あわせて、自分の端末が worker の端末（hub 以外の `hc-hub.role`）でないことと、自分のセッション（hc-session が付ける `claude.session`）が別の live な端末に無いことを確かめる。再起動の後に hub のセッションが worker の端末で再開すると、guard を通って別のセッションを止めうるため。**セッションを再開したら（PC の再起動・`claude --resume` の後）、最初に `preflight` を打ち直す。** 再起動の後の再開は `claude -c` ではなく hc-session の `restore` で行う（`-c` は同じディレクトリの最新のセッションを開くので、hub と worker が同じ repo にいると取り違える）。通知が無いと、親への通知も `<hc>` のタグも出ず、承認待ちに気づく経路が無くなる。worker の起動に `--no-notify` は付けない。`herdr-app` のウィンドウが開いていることは前提にしない。
 
 次に、CLI 構文の正典であるインストール済みバイナリの手引きを読む。この skill は hc の手引きの本文を写さない。
 
@@ -112,6 +112,7 @@ roster は編成の意図（desired state）で、`lanes.<名>.agents` は空で
 - 起動後は `hc wait <t> --timeout 60` で待つ。timeout で返り、`hc get --json` の `.status.state` が `null` なら `hc read` で画面を読む（信頼確認のダイアログが出ることがある。出ないこともある）。信頼の確認に hub が答えてよいのは、hub 自身が worker のために作った worktree のフォルダーだけで、それ以外は人に上げる。ダイアログも無く状態も報告されないときは、間を置いた複数回の観測で結論を出し（1 回の観測で決めない）、報告しなければ人に知らせて止まる
 - roster の `command` は hc の core の PATH から見つかる必要がある。見つからないと `hc run` が `spawn_failed: cannot start` で失敗する（[roster.md](references/roster.md)）
 - **監視は `hc wait --children any`。** 1 分ごとの見回りは作らない。状態の知らせで返ったときだけ `hc ls` と `hc get` で全 worker の状態を取り直す（`reason: timeout` は待ち直すだけ）
+- **`working` 以外は止まっている。** worker はターンを終えると `done` になる（`idle` ではない）。背景で待つループを書くなら状態を絞り込まず、`working` 以外になったら抜けて hub が判断する（`idle`・`blocked` だけを見るループで、`done` のまま 10 時間止まった worker を見落とした実例がある）。起きたら、`working` 以外の worker のうち依頼が終わっていないものを `hc read` で読み、促すか人に知らせる
 - **動的な worker の停止は、結果を受け取った hub が `hc kill` → `hc rm` で行い、台帳に記録する。** 常駐 agent は止めない。着地したら待機のまま残し、次の依頼を `hc send` で送る。止めるのは人が指示したときだけ。常駐 agent かどうかは `hc-hub residents --lane <L>` の名前の一覧で見分ける
 
 手順の正典 → [references/startup.md](references/startup.md)、[references/messaging.md](references/messaging.md)

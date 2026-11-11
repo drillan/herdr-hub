@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 from fake_hc import make_fake_hc, run_cli
-from hc_hub_lib.guard import GUARDED_OPS, GuardError, check, check_placement_tab
+from hc_hub_lib.guard import (
+    GUARDED_OPS,
+    GuardError,
+    check,
+    check_own_terminal,
+    check_placement_tab,
+)
 
 L = "hc-hub.lane"
 R = "hc-hub.role"
@@ -120,3 +126,20 @@ def test_keep_is_guarded() -> None:
     check("keep", {L: "be", R: "hub"}, {L: "be", R: "impl"})
     with pytest.raises(GuardError):
         check("keep", {L: "be", R: "hub"}, {L: "fe", R: "impl"})
+
+
+def test_own_terminal_without_role_or_as_hub_passes() -> None:
+    check_own_terminal("t5", {}, [])
+    check_own_terminal("t5", {"hc-hub.lane": "be", "hc-hub.role": "hub"}, [])
+
+
+def test_own_terminal_with_worker_role_is_refused() -> None:
+    # 再起動の後、hub のセッションが worker の端末で再開した（2026-11-11 に実測）
+    labels = {"hc-hub.lane": "be", "hc-hub.role": "impl"}
+    with pytest.raises(GuardError, match="worker の端末"):
+        check_own_terminal("t15", labels, [])
+
+
+def test_own_session_on_other_terminal_is_refused() -> None:
+    with pytest.raises(GuardError, match="t1"):
+        check_own_terminal("t15", {}, ["t1"])

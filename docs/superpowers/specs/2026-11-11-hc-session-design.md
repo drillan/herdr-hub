@@ -41,17 +41,18 @@
 | `[exited]` | 前面がシェルで、シェルの起動が `claude.at` 以前 | 送らない（そのシェルの中で Claude が普通に終わった） |
 | `[missing]` | 前面がシェルで、シェルの起動が `claude.at` より後、かつ記録のファイルが無い | 送らずにエラー |
 | `[restore]` | 前面がシェルで、シェルの起動が `claude.at` より後 | 送る |
+| `[duplicate]` | 同じ `claude.session` を持つ live な端末が他にもある（上の判定より優先） | 送らずにエラー |
 
 - 「シェルの起動が `claude.at` より後」は、Claude が動いていた後でシェルが立ち上がった（keep の回復でシェルに置き換わった）ことを表す。再起動のほか、同じ起動の中で Claude がシグナルで死んだ場合も含む
 - シェルの起動時刻は `/proc/<pid>/stat` の starttime と `/proc/stat` の btime から求める。hc の端末は同じマシンの同じ PID 名前空間で動く（2026-11-11 に確認）
 - ラベルが欠けている・値が不正（UUID でない、時刻が整数でない）端末は `[invalid]`、`hc get` に pid か `foreground.pid` が無い端末は `[unknown]` として示す。起動直後の端末は `foreground` が null のことがある（2026-11-11 に実測）。どちらも他の端末の判定は続ける
-- `[missing]`・`[invalid]`・`[unknown]` があれば終了コード 1
+- `[missing]`・`[invalid]`・`[unknown]`・`[duplicate]` があれば終了コード 1
 
 ## 再開（`hc-session restore [--dry-run] [<端末>...]`）
 
 - `[restore]` の端末に `hc send <t> "cd <cwd> && claude --resume <id>"` を送る。`<cwd>` はシェル向けに引用する。起動時のフラグは引き継がない（roster の `command` が `claude` だけの運用を前提にする）
 - 端末を指定したときは、その端末だけを対象にする。指定した端末が `[restore]` でなければエラー
-- `[missing]`・`[invalid]`・`[unknown]` があれば、それらには送らず名前を挙げて終了コード 1
+- `[missing]`・`[invalid]`・`[unknown]`・`[duplicate]` があれば、それらには送らず名前を挙げて終了コード 1
 - `--dry-run` は送るコマンドを表示するだけ
 
 ## 範囲外
@@ -59,3 +60,9 @@
 - Codex など Claude Code 以外のエージェント
 - keep の無い端末（再起動で `finished` になり、送る先が無い）。hc-hub spawn の worker と Herdr app の端末は keep が付いている（2026-11-11 に `hc get` で確認）
 - 端末を作り直すこと。端末は残る前提
+
+## 入れ替わりの検出（2026-11-11 追記）
+
+- 再起動の後、hub のセッションが worker の端末で再開し、worker のセッションはどこでも動かなかった（ytscribe レーン、11-06 と 11-11 の 2 回）。worker の端末で `claude -c` を打つと、同じディレクトリの最新のセッション（hub のもの）が開くためと推測している
+- hook はどちらの端末にも同じ `claude.session` を記録するので、同じ値が 2 つの live な端末にあれば `[duplicate]` とし、どちらにも送らない
+- hc-hub の `start` と `preflight` も、自分の端末が worker の端末（hub 以外の `hc-hub.role`）であるか、自分の `claude.session` が別の live な端末にもあれば止まる

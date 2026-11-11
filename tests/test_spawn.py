@@ -270,7 +270,10 @@ def test_cli_start_refuses_when_other_hub_live(
 ) -> None:
     hc = make_fake_hc(
         tmp_path,
-        {"t3": {"address": "t3", "state": "live", "labels": {}}},
+        {
+            "t3": {"address": "t3", "state": "live", "labels": {}},
+            "t5": {"address": "t5", "state": "live", "labels": {}},
+        },
         [{"address": "t3"}],
     )
     p = run_cli(
@@ -361,7 +364,7 @@ def test_spawn_argv_bad_role(roster_path: Path, bad: str) -> None:
 def test_cli_start_ls_row_without_address_is_error(
     tmp_path: Path, roster_path: Path
 ) -> None:
-    hc = make_fake_hc(tmp_path, {}, [{"state": "live"}])
+    hc = make_fake_hc(tmp_path, {"t5": {"labels": {}}}, [{"state": "live"}])
     p = run_cli(
         "start",
         "--roster",
@@ -655,3 +658,45 @@ def test_cli_spawn_refuses_non_hub(tmp_path: Path, roster_path: Path) -> None:
     p = _spawn_cli(tmp_path, roster_path, "--preset", "impl", labels={})
     assert p.returncode == 2
     assert not (tmp_path / "run.log").exists()
+
+
+SID = "b71bdc82-85b1-4c3d-b407-99c4e151669d"
+
+
+def _start(roster_path: Path, hc: Path) -> "subprocess.CompletedProcess[str]":
+    return run_cli(
+        "start",
+        "--roster", str(roster_path),
+        "--lane", "be",
+        "--hc", str(hc),
+        env_extra={"HC_TERMINAL_ID": "t5"},
+    )  # fmt: skip
+
+
+def test_cli_start_refuses_in_worker_terminal(
+    tmp_path: Path, roster_path: Path
+) -> None:
+    labels = {"hc-hub.lane": "be", "hc-hub.role": "impl"}
+    hc = make_fake_hc(tmp_path, {"t5": {"labels": labels}}, [])
+    p = _start(roster_path, hc)
+    assert p.returncode == 2
+    assert "worker の端末" in p.stderr
+    assert not (tmp_path / "label.log").exists()
+
+
+def test_cli_start_refuses_when_own_session_is_elsewhere(
+    tmp_path: Path, roster_path: Path
+) -> None:
+    mine = {"claude.session": SID}
+    hc = make_fake_hc(
+        tmp_path,
+        {
+            "t5": {"address": "t5", "state": "live", "labels": mine},
+            "t1": {"address": "t1", "state": "live", "labels": mine},
+        },
+        [{"address": "t5"}, {"address": "t1"}],
+    )
+    p = _start(roster_path, hc)
+    assert p.returncode == 2
+    assert "t1" in p.stderr
+    assert not (tmp_path / "label.log").exists()

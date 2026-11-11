@@ -1,9 +1,11 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 LANE = "hc-hub.lane"
 ROLE = "hc-hub.role"
 HUB_ROLE = "hub"
 SPACE = "herdr.space"
+# hc-session の SessionStart hook が端末に付ける
+SESSION = "claude.session"
 
 GUARDED_OPS: frozenset[str] = frozenset(
     {
@@ -58,3 +60,25 @@ def check_placement_tab(self_labels: Mapping[str, str]) -> str:
         msg = f"自分に {SPACE} ラベルが無く、worker を置く space を決められない"
         raise GuardError(msg)
     return self_labels[SPACE]
+
+
+def check_own_terminal(
+    me: str, self_labels: Mapping[str, str], same_session: Sequence[str]
+) -> None:
+    # 再起動の後、hub のセッションが worker の端末で再開したことがある（2026-11-11）。
+    # そのまま hub として動くと、guard を通って別のセッションを止めうる
+    role = self_labels.get(ROLE)
+    if role is not None and role != HUB_ROLE:
+        msg = (
+            f"この端末（{me}）は {ROLE}={role} の worker の端末。"
+            "hub のセッションが worker の端末で再開していないかを"
+            " hc-session status で確かめる"
+        )
+        raise GuardError(msg)
+    if same_session:
+        msg = (
+            f"自分のセッション（{SESSION}）が別の live な端末"
+            f" {', '.join(same_session)} にもある。"
+            "同じセッションを 2 か所で再開していないかを hc-session status で確かめる"
+        )
+        raise GuardError(msg)

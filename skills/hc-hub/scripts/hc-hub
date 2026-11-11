@@ -22,7 +22,13 @@ from hc_hub_lib.gitignore import (
     plan_ledger_ignore,
     require_roster_not_ignored,
 )
-from hc_hub_lib.guard import GuardError, check, check_placement_tab
+from hc_hub_lib.guard import (
+    SESSION,
+    GuardError,
+    check,
+    check_own_terminal,
+    check_placement_tab,
+)
 from hc_hub_lib.hc_client import (
     HcError,
     get_labels,
@@ -108,7 +114,8 @@ def add_hc_subcommands(
     space = sub.add_parser("space", help="自分の herdr.space を出す")
     _add_hc(space)
 
-    sub.add_parser("preflight", help="hc の前提を検査する")
+    preflight = sub.add_parser("preflight", help="hc の前提を検査する")
+    _add_hc(preflight)
 
     detect = sub.add_parser("detect", help="エージェントが使えるかを判定する")
     _add_hc(detect)
@@ -265,7 +272,33 @@ def run_ledger(args: argparse.Namespace) -> None:
     )
 
 
+def check_own_identity(hc: str, me: str) -> None:
+    labels = get_labels(hc, me)
+    session = labels.get(SESSION)
+    same: list[str] = []
+    if session:
+        listing = hc_json(hc, ["ls", "--label", f"{SESSION}={session}", "--json"])
+        rows = listing.get("terminals")
+        if not isinstance(rows, list):
+            msg = "hc ls --json に terminals の配列が無い"
+            raise HcError(msg)
+        for row in rows:
+            address = row.get("address") if isinstance(row, dict) else None
+            if not isinstance(address, str) or address == me:
+                continue
+            term = get_terminal(hc, address)
+            term_labels = term.get("labels")
+            if (
+                term.get("state") == "live"
+                and isinstance(term_labels, dict)
+                and term_labels.get(SESSION) == session
+            ):
+                same.append(address)
+    check_own_terminal(me, labels, same)
+
+
 def run_start(args: argparse.Namespace, me: str) -> None:
+    check_own_identity(args.hc, me)
     roster = load_roster(args.roster)
     listing = hc_json(
         args.hc,
@@ -455,6 +488,7 @@ def run_init(args: argparse.Namespace, me: str) -> None:
 def run_hc_commands(args: argparse.Namespace) -> None:
     if args.command == "preflight":
         run_preflight(os.environ)
+        check_own_identity(args.hc, terminal_id(os.environ))
         return
     me = terminal_id(os.environ)
     if args.command == "guard":

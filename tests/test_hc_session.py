@@ -11,6 +11,7 @@ from _paths import ROOT
 SCRIPT = ROOT / "skills/hc-session/scripts/hc-session"
 SID = "cbbd6be8-6a2e-4731-a8dc-199cb980fc29"
 SID2 = "b71bdc82-85b1-4c3d-b407-99c4e151669d"
+SID3 = "078241d4-5824-4d49-bca1-1e4756f70691"
 BTIME = 1_794_365_000  # 起動時刻（epoch 秒）
 TCK = os.sysconf("SC_CLK_TCK")
 
@@ -221,7 +222,7 @@ def _restore_world(tmp_path: Path) -> tuple[Path, Path]:
         {
             "t1": _term(10, 10, _labels(tmp_path, SID, BTIME - 100)),
             "t2": _term(11, 11, _labels(tmp_path, SID2, BTIME - 100)),
-            "t3": _term(12, 13, _labels(tmp_path, SID, BTIME + 60)),
+            "t3": _term(12, 13, _labels(tmp_path, SID3, BTIME + 60)),
             "t4": _term(14, 14, {}),
             "t6": _term(15, 15, _labels(tmp_path, SID, BTIME - 100), state="finished"),
         },
@@ -340,3 +341,27 @@ def test_claude_as_terminal_root_program_is_running(tmp_path: Path) -> None:
     p = _run(hc, proc, "restore")
     assert p.returncode == 0
     assert _log(tmp_path, "send.log") == []
+
+
+def test_same_session_on_two_terminals_is_duplicate(tmp_path: Path) -> None:
+    # 再起動の後、hub のセッションが worker の端末で再開した（2026-11-11 に実測）
+    proc = _proc(tmp_path)
+    _proc_entry(proc, "10", "fish", 1, BTIME + 30)
+    _proc_entry(proc, "50", "fish", 1, BTIME + 30)
+    _proc_entry(proc, "60", "fish", 1, BTIME + 30)
+    hc = _fake_hc(
+        tmp_path,
+        {
+            "t1": _term(10, 11, _labels(tmp_path, SID, BTIME - 100)),
+            "t15": _term(50, 51, _labels(tmp_path, SID, BTIME + 60)),
+            "t16": _term(60, 60, _labels(tmp_path, SID2, BTIME - 100)),
+        },
+    )
+    p = _run(hc, proc, "status")
+    assert p.returncode == 1
+    assert "[duplicate] t1 " in p.stdout
+    assert "[duplicate] t15 " in p.stdout
+    assert "[restore] t16 " in p.stdout
+    p = _run(hc, proc, "restore")
+    assert p.returncode == 1
+    assert [a[0] for a in _log(tmp_path, "send.log")] == ["t16"]

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from fake_hc import run_cli
+from fake_hc import make_fake_hc, run_cli
 from hc_hub_lib.preflight import PreflightError, run_preflight
 
 
@@ -54,11 +54,27 @@ def test_home_config_used_when_xdg_unset(tmp_path: Path) -> None:
 
 
 def test_cli_preflight(tmp_path: Path) -> None:
+    hc = make_fake_hc(tmp_path, {"t5": {"labels": {}}}, [])
     ok = run_cli(
         "preflight",
+        "--hc",
+        str(hc),
         env_extra={"HC_TERMINAL_ID": "t5", "XDG_CONFIG_HOME": str(tmp_path)},
     )
     assert ok.returncode == 0, ok.stderr
     ng = run_cli("preflight", env_extra={"XDG_CONFIG_HOME": str(tmp_path)})
     assert ng.returncode == 2
     assert "管理下ではない" in ng.stderr
+
+
+def test_cli_preflight_refuses_in_worker_terminal(tmp_path: Path) -> None:
+    labels = {"hc-hub.lane": "be", "hc-hub.role": "impl"}
+    hc = make_fake_hc(tmp_path, {"t5": {"labels": labels}}, [])
+    p = run_cli(
+        "preflight",
+        "--hc",
+        str(hc),
+        env_extra={"HC_TERMINAL_ID": "t5", "XDG_CONFIG_HOME": str(tmp_path)},
+    )
+    assert p.returncode == 2
+    assert "worker の端末" in p.stderr

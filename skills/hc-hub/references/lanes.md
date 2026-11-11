@@ -26,8 +26,9 @@
 hc-hub start --lane <レーン名>
 ```
 
-次の 3 つは CLI が行う。手で `hc label` を打って代えない。
+次の 4 つは CLI が行う。手で `hc label` を打って代えない。
 
+- 自分のターミナルが worker のターミナル（hub 以外の `hc-hub.role`）であるか、自分のセッション（hc-session が付ける `claude.session`）が別の live なターミナルにもあれば、エラーで止まる（再起動の後に hub のセッションが worker のターミナルで再開した実例がある。`preflight` も同じ検査をする）
 - レーン名は起動引数で受け取る。省略した場合、または roster の `lanes:` に無い名前の場合はエラーで止まる
 - 同じレーンに `hc-hub.role=hub` の live なターミナルがすでにあればエラーで止まる（1 レーンに hub は 1 人。手での交代でも例外は設けない）
 - 自分のターミナル（`HC_TERMINAL_ID`）に `hc-hub.lane=<レーン>` と `hc-hub.role=hub` を付ける

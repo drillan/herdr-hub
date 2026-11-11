@@ -11,6 +11,7 @@ import shlex
 import subprocess
 import sys
 import time
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -214,6 +215,7 @@ def mark_of(proc: Path, term: Mapping[str, Any], labels: Mapping[str, Any]) -> s
     return "restore"
 
 
+DUPLICATE_DETAIL = "同じセッションの端末が他にもある"
 DETAILS = {
     "unknown": "pid か foreground.pid が無い",
     "missing": "claude.transcript のファイルが無い",
@@ -246,10 +248,22 @@ def survey(hc: str, proc: Path) -> list[Verdict]:
         verdict = judge(proc, address, hc_json(hc, ["get", address]))
         if verdict is not None:
             verdicts.append(verdict)
-    return verdicts
+    return mark_duplicates(verdicts)
 
 
-BROKEN = ("missing", "invalid", "unknown")
+def mark_duplicates(verdicts: list[Verdict]) -> list[Verdict]:
+    # 再起動の後に別の端末で同じセッションを再開すると、hook が両方に同じ ID を残す。
+    # どちらが正しい端末かは判定できないので、両方を送らずに人に返す
+    count = Counter(v.session for v in verdicts if v.mark != "invalid")
+    return [
+        Verdict("duplicate", v.address, v.session, v.cwd, DUPLICATE_DETAIL)
+        if v.mark != "invalid" and count[v.session] > 1
+        else v
+        for v in verdicts
+    ]
+
+
+BROKEN = ("missing", "invalid", "unknown", "duplicate")
 
 
 def status(hc: str, proc: Path) -> int:
