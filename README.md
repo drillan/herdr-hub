@@ -7,10 +7,12 @@
 | skill | 対象の環境 | 前提 | ドキュメント |
 |---|---|---|---|
 | **hc-hub** | herdr-core（`hc`）と Herdr app | `HC_TERMINAL_ID`、`uv` | [docs/hc-hub.md](docs/hc-hub.md) |
+| **hc-session** | herdr-core（`hc`）と Herdr app | `HC_TERMINAL_ID`、`uv` | [skills/hc-session/SKILL.md](skills/hc-session/SKILL.md) |
 | **herdr-hub** | 旧来の herdr | `HERDR_ENV=1` | [docs/herdr-hub.md](docs/herdr-hub.md) |
 | **herdr-session** | 旧来の herdr | `HERDR_ENV=1` | [skills/herdr-session/SKILL.md](skills/herdr-session/SKILL.md) |
 
 - **hc-hub** は、レーンごとの hub が worker を起動・監視・停止する。ガード・検証・台帳・起動は同梱の CLI（`scripts/hc-hub`）が担う
+- **hc-session** は、hc の端末ごとの Claude Code のセッションを hook で記録し、PC の再起動の後に同じ端末で `claude --resume` を送って再開する道具
 - **herdr-hub** は、roster（名簿）に載る worker へ briefing を配り、transport（`herdr`・`sendmessage`・`codex-queue`）で送る
 - **herdr-session** は、`herdr session stop` → `attach` でリセットされるエージェント名を capture・restore する道具
 
@@ -27,6 +29,7 @@ skill ごとに入れる（`skills/<名前>/` の構成）。
 ```bash
 # GitHub CLI（preview）
 gh skill install drillan/herdr-hub hc-hub
+gh skill install drillan/herdr-hub hc-session
 gh skill install drillan/herdr-hub herdr-hub
 gh skill install drillan/herdr-hub herdr-session
 
@@ -69,10 +72,11 @@ apm update
 
 ```
 skills/hc-hub/          # hc-hub の本体（SKILL.md・references/・同梱 CLI）
+skills/hc-session/      # hc-session の本体（SKILL.md・scripts/）
 skills/herdr-hub/       # herdr-hub の本体（SKILL.md・references/）
 skills/herdr-session/   # herdr-session の本体（SKILL.md・scripts/）
 examples/hc-hub-demo/   # hc-hub の試運転のサンプル
-tests/                  # hc-hub の CLI と文書のテスト（uv run pytest）
+tests/                  # hc-hub・hc-session の CLI と文書のテスト（uv run pytest）
 docs/hc-hub.md          # hc-hub の説明
 docs/herdr-hub.md       # herdr-hub の説明
 docs/superpowers/       # 設計 spec・実装計画・実測のメモ

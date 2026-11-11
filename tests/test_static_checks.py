@@ -23,3 +23,11 @@ def test_cli_entry_passes_mypy() -> None:
     # 拡張子が無く `mypy .` の探索に掛からないため、明示して検査する
     p = _run("mypy", str(SCRIPT))
     assert p.returncode == 0, p.stdout
+
+
+def test_hc_session_cli_is_checked_by_ruff_and_mypy() -> None:
+    script = ROOT / "skills/hc-session/scripts/hc-session"
+    assert str(script) in _run("ruff", "check", "--show-files", ".").stdout
+    assert _run("ruff", "check", str(script)).returncode == 0
+    p = _run("mypy", str(script))
+    assert p.returncode == 0, p.stdout

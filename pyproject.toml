@@ -17,7 +17,7 @@ testpaths = ["tests"]
 # Markdown 内のコード片は計画・skill 文書の一部で、整形すると文書の差分になるため対象にしない
 extend-exclude = [".worktrees", ".superpowers", "*.md"]
 # 拡張子の無い CLI 本体も検査する
-extend-include = ["skills/hc-hub/scripts/hc-hub"]
+extend-include = ["skills/hc-hub/scripts/hc-hub", "skills/hc-session/scripts/hc-session"]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -41,7 +41,7 @@ ignore = [
   "PLR2004", # 期待値のリテラルがテストの主題
 ]
 
-"skills/hc-hub/scripts/hc-hub" = [
+"skills/{hc-hub/scripts/hc-hub,hc-session/scripts/hc-session}" = [
   "T201",    # 標準出力・標準エラーが CLI の出力そのもの
 ]
 
@@ -49,5 +49,6 @@ ignore = [
 strict = true
 mypy_path = "skills/hc-hub/scripts"
 # 拡張子の無い CLI 本体。`mypy .` は files を無視するため tests/test_static_checks.py でも検査する
+# hc-session も拡張子が無く、同時に渡すと両方が __main__ になって衝突するので、テストで別に検査する
 files = [".", "skills/hc-hub/scripts/hc-hub"]
 exclude = ["^\\.worktrees/", "^\\.superpowers/", "^\\.venv/"]

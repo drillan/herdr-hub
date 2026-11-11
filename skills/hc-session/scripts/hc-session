@@ -1,0 +1,330 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+import argparse
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+import time
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, NoReturn
+
+HC_TIMEOUT_SECONDS: float = 30
+SESSION_RE = re.compile(
+    r"\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z"
+)
+LABELS = ("claude.session", "claude.cwd", "claude.transcript", "claude.at")
+HOOK_KEYS = ("session_id", "transcript_path", "cwd")
+# /proc/<pid>/stat の ')' より後ろの欄の位置（man 5 proc の欄番号から 3 を引く）
+STAT_PPID = 1
+STAT_STARTTIME = 19
+
+
+class SessionError(Exception):
+    pass
+
+
+# --- hc ---
+
+
+def run_hc(hc: str, args: list[str]) -> str:
+    try:
+        proc = subprocess.run(  # noqa: S603
+            [hc, *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=HC_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as e:
+        msg = f"{hc} {' '.join(args)} が {HC_TIMEOUT_SECONDS:g} 秒以内に終わらない"
+        raise SessionError(msg) from e
+    except OSError as e:
+        msg = f"{hc} を実行できない: {e}"
+        raise SessionError(msg) from e
+    if proc.returncode != 0:
+        detail = proc.stderr.strip() or proc.stdout.strip()
+        msg = f"{hc} {' '.join(args)} が終了コード {proc.returncode} で失敗: {detail}"
+        raise SessionError(msg)
+    return proc.stdout
+
+
+def hc_json(hc: str, args: list[str]) -> Mapping[str, Any]:
+    out = run_hc(hc, [*args, "--json"])
+    try:
+        payload = json.loads(out)
+    except json.JSONDecodeError as e:
+        msg = f"{hc} {' '.join(args)} の出力が JSON でない: {out[:200]}"
+        raise SessionError(msg) from e
+    if not isinstance(payload, dict):
+        msg = f"{hc} {' '.join(args)} の出力がオブジェクトでない"
+        raise SessionError(msg)
+    return payload
+
+
+def foreground_pid(term: Mapping[str, Any], address: str) -> int:
+    fg = term.get("foreground")
+    pid = fg.get("pid") if isinstance(fg, dict) else None
+    if not isinstance(pid, int):
+        msg = f"{address} の foreground.pid が取れない"
+        raise SessionError(msg)
+    return pid
+
+
+# --- /proc ---
+
+
+def stat_fields(proc: Path, name: str) -> list[str]:
+    path = proc / name / "stat"
+    try:
+        text = path.read_text()
+    except OSError as e:
+        msg = f"{path} を読めない: {e}"
+        raise SessionError(msg) from e
+    # comm は空白や括弧を含みうるので、最後の ')' の後ろから数える
+    return text[text.rindex(")") + 1 :].split()
+
+
+def comm(proc: Path, pid: int) -> str:
+    path = proc / str(pid) / "comm"
+    try:
+        return path.read_text().strip()
+    except OSError as e:
+        msg = f"{path} を読めない: {e}"
+        raise SessionError(msg) from e
+
+
+def nearest_claude(proc: Path) -> int:
+    pid = int(stat_fields(proc, "self")[STAT_PPID])
+    while pid > 1:
+        if comm(proc, pid) == "claude":
+            return pid
+        pid = int(stat_fields(proc, str(pid))[STAT_PPID])
+    msg = "祖先に claude のプロセスが無い。Claude Code の hook から呼ぶ"
+    raise SessionError(msg)
+
+
+def boot_time(proc: Path) -> int:
+    path = proc / "stat"
+    try:
+        lines = path.read_text().splitlines()
+    except OSError as e:
+        msg = f"{path} を読めない: {e}"
+        raise SessionError(msg) from e
+    for line in lines:
+        if line.startswith("btime "):
+            return int(line.split()[1])
+    msg = f"{path} に btime が無い"
+    raise SessionError(msg)
+
+
+def start_ms(proc: Path, pid: int) -> int:
+    ticks = int(stat_fields(proc, str(pid))[STAT_STARTTIME])
+    return boot_time(proc) * 1000 + ticks * 1000 // os.sysconf("SC_CLK_TCK")
+
+
+# --- record ---
+
+
+def record(hc: str, proc: Path, stdin: str, env: Mapping[str, str]) -> None:
+    address = env.get("HC_TERMINAL_ID")
+    if not address:
+        # hc の外の Claude には記録する端末が無い
+        return
+    try:
+        hook = json.loads(stdin)
+    except json.JSONDecodeError as e:
+        msg = f"hook の入力が JSON でない: {stdin[:200]}"
+        raise SessionError(msg) from e
+    missing = [k for k in HOOK_KEYS if not isinstance(hook.get(k), str) or not hook[k]]
+    if missing:
+        msg = f"hook の入力に {', '.join(missing)} が無い"
+        raise SessionError(msg)
+    claude = nearest_claude(proc)
+    fg = foreground_pid(hc_json(hc, ["get", address]), address)
+    if fg != claude:
+        reason = f"{address} の前面（pid {fg}）でない claude（pid {claude}）"
+        print(f"hc-session: {reason}なので記録しない", file=sys.stderr)
+        return
+    run_hc(
+        hc,
+        [
+            "label",
+            address,
+            f"claude.session={hook['session_id']}",
+            f"claude.cwd={hook['cwd']}",
+            f"claude.transcript={hook['transcript_path']}",
+            f"claude.at={time.time_ns() // 1_000_000}",
+        ],
+    )
+
+
+# --- status / restore ---
+
+
+@dataclass(frozen=True)
+class Verdict:
+    mark: str
+    address: str
+    session: str
+    cwd: str
+    detail: str = ""
+
+    def line(self) -> str:
+        tail = f" ({self.detail})" if self.detail else ""
+        return f"[{self.mark}] {self.address} {self.session} {self.cwd}{tail}"
+
+    def command(self) -> str:
+        return f"cd {shlex.quote(self.cwd)} && claude --resume {self.session}"
+
+
+def label_problem(labels: Mapping[str, Any]) -> str | None:
+    absent = [k for k in LABELS if not labels.get(k)]
+    if absent:
+        return f"ラベルが無い: {', '.join(absent)}"
+    if not SESSION_RE.match(str(labels["claude.session"])):
+        return "claude.session が UUID でない"
+    if not str(labels["claude.at"]).isdigit():
+        return "claude.at が整数でない"
+    return None
+
+
+def mark_of(proc: Path, term: Mapping[str, Any], labels: Mapping[str, Any]) -> str:
+    root = term.get("pid")
+    fg = term.get("foreground")
+    fg_pid = fg.get("pid") if isinstance(fg, dict) else None
+    if not isinstance(root, int) or not isinstance(fg_pid, int):
+        # 起動直後の端末は foreground が null のことがある。他の端末の判定は続ける
+        return "unknown"
+    if fg_pid != root:
+        return "running"
+    if start_ms(proc, root) <= int(labels["claude.at"]):
+        return "exited"
+    if not Path(str(labels["claude.transcript"])).is_file():
+        return "missing"
+    return "restore"
+
+
+DETAILS = {
+    "unknown": "pid か foreground.pid が無い",
+    "missing": "claude.transcript のファイルが無い",
+}
+
+
+def judge(proc: Path, address: str, term: Mapping[str, Any]) -> Verdict | None:
+    labels = term.get("labels") or {}
+    if "claude.session" not in labels:
+        return None
+    session = str(labels["claude.session"])
+    cwd = str(labels.get("claude.cwd", ""))
+    problem = label_problem(labels)
+    if problem is not None:
+        return Verdict("invalid", address, session, cwd, problem)
+    mark = mark_of(proc, term, labels)
+    return Verdict(mark, address, session, cwd, DETAILS.get(mark, ""))
+
+
+def survey(hc: str, proc: Path) -> list[Verdict]:
+    rows = hc_json(hc, ["ls"]).get("terminals")
+    if not isinstance(rows, list):
+        msg = f"{hc} ls の出力に terminals が無い"
+        raise SessionError(msg)
+    verdicts = []
+    for row in rows:
+        if row.get("state") != "live":
+            continue
+        address = str(row["address"])
+        verdict = judge(proc, address, hc_json(hc, ["get", address]))
+        if verdict is not None:
+            verdicts.append(verdict)
+    return verdicts
+
+
+BROKEN = ("missing", "invalid", "unknown")
+
+
+def status(hc: str, proc: Path) -> int:
+    verdicts = survey(hc, proc)
+    for v in verdicts:
+        print(v.line())
+    return 1 if any(v.mark in BROKEN for v in verdicts) else 0
+
+
+def restore(hc: str, proc: Path, targets: Sequence[str], *, dry_run: bool) -> int:
+    verdicts = survey(hc, proc)
+    if targets:
+        by_address = {v.address: v for v in verdicts}
+        unknown = [t for t in targets if t not in by_address]
+        if unknown:
+            msg = (
+                f"claude.session のラベルを持つ live な端末でない: {', '.join(unknown)}"
+            )
+            raise SessionError(msg)
+        verdicts = [by_address[t] for t in targets]
+        refused = [v for v in verdicts if v.mark not in ("restore", *BROKEN)]
+        if refused:
+            names = ", ".join(f"{v.address}（{v.mark}）" for v in refused)
+            msg = f"再開できる状態でない: {names}"
+            raise SessionError(msg)
+    for v in verdicts:
+        if v.mark in BROKEN:
+            print(v.line())
+        elif v.mark == "restore":
+            print(f"{v.line()} <- {v.command()}")
+            if not dry_run:
+                run_hc(hc, ["send", v.address, v.command()])
+    broken = [v.address for v in verdicts if v.mark in BROKEN]
+    if broken:
+        print(f"hc-session: 送らなかった端末: {', '.join(broken)}", file=sys.stderr)
+        return 1
+    return 0
+
+
+# --- CLI ---
+
+
+def die(message: str) -> NoReturn:
+    print(f"hc-session: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def parse(argv: Sequence[str]) -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        prog="hc-session",
+        description="hc の端末ごとの Claude Code のセッションを記録し、再起動後に再開",
+    )
+    p.add_argument("--hc", default="hc")
+    p.add_argument("--proc", type=Path, default=Path("/proc"))
+    sub = p.add_subparsers(dest="command", required=True)
+    sub.add_parser(
+        "record", help="SessionStart hook から呼び、端末にセッションを記録する"
+    )
+    sub.add_parser("status", help="端末ごとの判定を表示する（送らない）")
+    r = sub.add_parser("restore", help="再開できる端末に claude --resume を送る")
+    r.add_argument("--dry-run", action="store_true")
+    r.add_argument("targets", nargs="*", metavar="TERMINAL")
+    return p.parse_args(argv)
+
+
+def main(argv: Sequence[str]) -> int:
+    args = parse(argv)
+    try:
+        if args.command == "record":
+            record(args.hc, args.proc, sys.stdin.read(), os.environ)
+            return 0
+        if args.command == "status":
+            return status(args.hc, args.proc)
+        return restore(args.hc, args.proc, args.targets, dry_run=args.dry_run)
+    except SessionError as e:
+        die(str(e))
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

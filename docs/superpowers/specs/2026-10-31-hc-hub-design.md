@@ -59,6 +59,7 @@ herdr-core（CLI は `hc`）は、ターミナルを動かし続ける常駐の 
 
 - skill 名は `hc-hub`。`skills/hc-hub/` に置き、`gh skill publish` の配布対象にする
 - `herdr-hub`・`herdr-session` は旧来の `herdr` 用として残し、中身は変えない。`herdr-session` に当たるものは作らない（herdr-core では再起動でプログラムが消えるため、名前を付け直す対象がない）
+  - 2026-11-11 追記: 再起動で消えるのは端末の中のプログラムだけで、端末とラベルは残ると分かった。`herdr-session` に当たるものは、独立した skill `hc-session` として作った（[2026-11-11-hc-session-design.md](2026-11-11-hc-session-design.md)）
 
 ### 4.2 §0 の前提と、hc の手引きの扱い
 
