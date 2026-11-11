@@ -57,7 +57,7 @@ gh skill update --all           # すべての skill を非対話で更新
 gh skill install drillan/herdr-hub hc-hub --force --scope user --agent claude-code
 
 # バージョンの pin（インストール時か張り替え）
-gh skill install drillan/herdr-hub hc-hub --pin v0.4.0
+gh skill install drillan/herdr-hub hc-hub --pin v0.5.0
 
 # skills.sh
 npx skills update hc-hub
