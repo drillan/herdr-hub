@@ -254,12 +254,25 @@ def test_init_does_not_duplicate_existing_ignore_line(tmp_path: Path) -> None:
     assert json.loads(result.stdout)["gitignore_appended"] is False
 
 
-def _shell_home(tmp_path: Path, rc: str) -> dict[str, str]:
-    # ログインシェルは本物（passwd の pw_shell）が起きるので、HOME で rc を固定する
+def _shell_home(
+    tmp_path: Path, *, path: Path | None = None, alias: str | None = None
+) -> dict[str, str]:
+    # ログインシェルは本物（passwd の pw_shell）が起きるので、HOME で rc を固定する。
+    # sh 系と fish では rc の書き方が違うので、両方を置く
     home = tmp_path / "home"
     home.mkdir()
+    sh_rc = fish_rc = ""
+    if path is not None:
+        sh_rc += f'PATH="{path}:$PATH"\n'
+        fish_rc += f"set -gx PATH '{path}' $PATH\n"
+    if alias is not None:
+        sh_rc += f"alias {alias}='echo hi'\n"
+        fish_rc += f"alias {alias} 'echo hi'\n"
     for name in (".profile", ".zshrc"):
-        (home / name).write_text(rc)
+        (home / name).write_text(sh_rc)
+    fish_conf = home / ".config" / "fish"
+    fish_conf.mkdir(parents=True)
+    (fish_conf / "config.fish").write_text(fish_rc)
     # HOME を変えると uv がキャッシュと Python を見失うので、元の場所を明示する
     uv_dirs = {
         key: subprocess.run(
@@ -273,7 +286,12 @@ def _shell_home(tmp_path: Path, rc: str) -> dict[str, str]:
             ("UV_PYTHON_INSTALL_DIR", ["python", "dir"]),
         )
     }
-    return {"HOME": str(home), "ZDOTDIR": str(home), **uv_dirs}
+    return {
+        "HOME": str(home),
+        "ZDOTDIR": str(home),
+        "XDG_CONFIG_HOME": str(home / ".config"),
+        **uv_dirs,
+    }
 
 
 def _shell_only_opencode(tmp_path: Path) -> Path:
@@ -301,7 +319,7 @@ def _init_env(
 def test_init_abs_path_writes_path_found_by_login_shell(tmp_path: Path) -> None:
     repo, fake = _setup(tmp_path)
     exe = _shell_only_opencode(tmp_path)
-    env = _shell_home(tmp_path, f'PATH="{exe.parent}:$PATH"\n')
+    env = _shell_home(tmp_path, path=exe.parent)
     result = _init_env(
         repo, fake, env,
         "--lane", "be", "--approval", "manual",
@@ -346,7 +364,7 @@ def test_init_missing_on_core_path_suggests_abs_path(tmp_path: Path) -> None:
 
 def test_init_abs_path_rejects_alias(tmp_path: Path) -> None:
     repo, fake = _setup(tmp_path)
-    env = _shell_home(tmp_path, "alias opencode='echo hi'\n")
+    env = _shell_home(tmp_path, alias="opencode")
     result = _init_env(
         repo, fake, env,
         "--lane", "be", "--approval", "manual",
@@ -394,7 +412,7 @@ def _shell_only_script(tmp_path: Path, name: str, body: str, *, mode: int) -> Pa
 def test_init_abs_path_rejects_missing_env_interpreter(tmp_path: Path) -> None:
     repo, fake = _setup(tmp_path)
     exe = _shell_only_script(tmp_path, "codex", "#!/usr/bin/env node\n", mode=0o755)
-    env = _shell_home(tmp_path, f'PATH="{exe.parent}:$PATH"\n')
+    env = _shell_home(tmp_path, path=exe.parent)
     result = _init_env(
         repo, fake, env,
         "--lane", "be", "--approval", "manual",
@@ -414,7 +432,7 @@ def test_init_abs_path_accepts_env_interpreter_on_core_path(tmp_path: Path) -> N
     exe = _shell_only_script(
         tmp_path, "codex", "#!/usr/bin/env -S node --flag\n", mode=0o755
     )
-    env = _shell_home(tmp_path, f'PATH="{exe.parent}:$PATH"\n')
+    env = _shell_home(tmp_path, path=exe.parent)
     result = _init_env(
         repo, fake, env,
         "--lane", "be", "--approval", "manual",
@@ -460,7 +478,7 @@ def test_init_abs_path_rejects_path_with_space(tmp_path: Path) -> None:
     exe = shbin / "opencode"
     exe.write_text("#!/bin/sh\n")
     exe.chmod(0o755)
-    env = _shell_home(tmp_path, f'PATH="{shbin}:$PATH"\n')
+    env = _shell_home(tmp_path, path=shbin)
     result = _init_env(
         repo, fake, env,
         "--lane", "be", "--approval", "manual",

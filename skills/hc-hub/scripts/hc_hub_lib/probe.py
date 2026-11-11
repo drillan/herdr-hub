@@ -168,7 +168,7 @@ def probe_core(hc: str, executables: Sequence[str], cwd: Path) -> dict[str, bool
     return result
 
 
-SUPPORTED_SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh"})
+SUPPORTED_SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh", "fish"})
 
 
 def is_probeable_path(path: str) -> bool:
@@ -199,12 +199,21 @@ def login_shell() -> Path:
     return shell
 
 
-def _build_shell_script(nonce: str, names: Sequence[str]) -> str:
+def _lookup(shell: Path, name: str) -> str:
+    q = shlex.quote(name)
+    if shell.name == "fish":
+        # fish の command -v は関数（alias）を出さない。sh 系の alias の出力と同じく、
+        # 絶対パスでない文字列にして、見つからない場合と区別する
+        return (
+            f'"$(command -v {q} 2>/dev/null; or functions -q {q} && echo function {q})"'
+        )
+    return f'"$(command -v {q} 2>/dev/null)"'
+
+
+def _build_shell_script(shell: Path, nonce: str, names: Sequence[str]) -> str:
     # rc の出力が改行で終わらなくても、印の行が行頭から始まるようにする
     lines = ["printf '\\n'"] + [
-        f"printf '%s %s %s\\n' {nonce} {n} "
-        f'"$(command -v {shlex.quote(n)} 2>/dev/null)"'
-        for n in names
+        f"printf '%s %s %s\\n' {nonce} {n} {_lookup(shell, n)}" for n in names
     ]
     lines.append(f"printf '%s END\\n' {nonce}")
     lines.append("exit 0")
@@ -248,7 +257,7 @@ def probe_shell(
 ) -> dict[str, str]:
     names = _check_names(executables)
     nonce = secrets.token_hex(8)
-    script = _build_shell_script(nonce, names)
+    script = _build_shell_script(shell, nonce, names)
     try:
         proc = subprocess.run(  # noqa: S603
             [str(shell), "-l", "-i", "-c", script],

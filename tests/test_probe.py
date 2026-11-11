@@ -1,5 +1,6 @@
 import os
 import pwd
+import shutil
 import stat
 import subprocess
 from pathlib import Path
@@ -126,11 +127,35 @@ def test_probe_shell_missing_shell_is_error(tmp_path: Path) -> None:
         probe_shell(tmp_path / "no-such-shell", ["pi"], _home(tmp_path))
 
 
-def test_login_shell_rejects_fish(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_login_shell_rejects_csh(monkeypatch: pytest.MonkeyPatch) -> None:
+    entry = pwd.struct_passwd(("u", "x", 1, 1, "", "/home/u", "/bin/csh"))
+    monkeypatch.setattr(pwd, "getpwuid", lambda _uid: entry)
+    with pytest.raises(ProbeError, match="csh"):
+        login_shell()
+
+
+def test_login_shell_accepts_fish(monkeypatch: pytest.MonkeyPatch) -> None:
     entry = pwd.struct_passwd(("u", "x", 1, 1, "", "/home/u", "/usr/bin/fish"))
     monkeypatch.setattr(pwd, "getpwuid", lambda _uid: entry)
-    with pytest.raises(ProbeError, match="fish"):
-        login_shell()
+    assert login_shell() == Path("/usr/bin/fish")
+
+
+FISH = shutil.which("fish")
+
+
+@pytest.mark.skipif(FISH is None, reason="fish が入っていない")
+def test_probe_shell_fish_reports_path_function_and_missing(tmp_path: Path) -> None:
+    env = _home(tmp_path) | {"XDG_CONFIG_HOME": str(tmp_path / ".config")}
+    conf = tmp_path / ".config" / "fish"
+    conf.mkdir(parents=True)
+    # fish の alias は関数になる。sh の alias と同じく、絶対パスでない出力にする
+    (conf / "config.fish").write_text("alias pi 'echo hi'\n")
+    result = probe_shell(Path(str(FISH)), ["claude", "pi", "devin"], env)
+    assert result == {
+        "claude": f"{tmp_path}/my bin/claude",
+        "pi": "function pi",
+        "devin": "",
+    }
 
 
 def test_login_shell_accepts_bash(monkeypatch: pytest.MonkeyPatch) -> None:
